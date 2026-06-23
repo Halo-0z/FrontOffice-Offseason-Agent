@@ -4,7 +4,9 @@ A short, review-friendly overview of `FrontOffice-Offseason-Agent`.
 Intended for portfolio / resume / project-introduction use. For the
 full technical picture, see
 [README.md](../README.md) and
-[docs/architecture.md](architecture.md).
+[docs/architecture.md](architecture.md). See
+[docs/final-release-snapshot.md](final-release-snapshot.md) for the
+final release snapshot.
 
 ## Project name
 

@@ -220,6 +220,10 @@ docs/              # architecture, agent-workflow, evaluation, demo-runbook, pro
   runbook with expected results and known Windows notes.
 - [docs/project-summary.md](docs/project-summary.md) — short project
   summary for review / portfolio / introduction.
+- [docs/final-release-snapshot.md](docs/final-release-snapshot.md) —
+  final release snapshot for the M5-D submission package.
+- [docs/submission-checklist.md](docs/submission-checklist.md) —
+  canonical "is the project ready to submit" gate.
 
 ## Non-Goals
 
