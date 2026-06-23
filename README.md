@@ -111,3 +111,15 @@ warnings). Returns a structured `ValidationResult` with `status`
 (always `True`), and `limitations`. This is **not** a complete NBA CBA
 implementation; apron hard caps are warnings only. The engine never
 mutates `data/contracts.json` or any roster state.
+
+M3-A implemented: deterministic `roster_need_service` and
+`depth_chart_projector`. `roster_need_service` loads demo players from
+`data/players.json` (enriched with contract_id/salary from
+`data/contracts.json`), computes per-position counts vs a heuristic
+target (2 per position), and returns a `RosterNeedReport` with
+`needs` (sorted by priority high→medium), `strengths`, and MVP
+`limitations`. `depth_chart_projector` builds a `ProjectedDepthChart`
+with one `DepthChartSlot` per position (PG/SG/SF/PF/C), where the
+first player at each position is the starter, the rest are backups,
+and `need_level` is `high` (empty) / `medium` (1 player) / `low` (2+).
+No LLM, no proposals, no roster state writes.

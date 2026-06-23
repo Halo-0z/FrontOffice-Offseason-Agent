@@ -36,6 +36,16 @@ trade roster-overflow FAIL, dispatch correctness, immutable
 `ValidationResult`, `requires_human_approval=True` invariant, and
 no-mutation of `data/contracts.json`.
 
+M3-A roster & depth chart deterministic tests (implemented in
+`test_roster_need_service.py` and `test_depth_chart_projector.py`):
+load 3 demo teams' roster players, position-count correctness, missing
+position → HIGH need, single-player position → MEDIUM need, strengths
+disjoint from needs, unknown-team raises clear exception, no mutation
+of `data/players.json`, every standard position has a depth-chart slot,
+empty slot → `starter=None` + `need_level=high`, single-player slot →
+`medium`, multi-player slot → `low`, starters/backups derived from
+roster (not hardcoded), determinism, and immutability.
+
 ## Evaluation Harness (future, M6)
 
 - Run the agent over a fixed set of `(team, goal)` seeds.
