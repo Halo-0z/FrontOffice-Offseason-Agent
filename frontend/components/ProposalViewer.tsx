@@ -340,7 +340,7 @@ export default function ProposalViewer({ payload }: ProposalViewerProps) {
           </div>
           <div>
             <span style={labelStyle}>proposal_id</span>
-            <div style={valueStyle} style={{ fontFamily: "monospace" }}>
+            <div style={{ ...valueStyle, fontFamily: "monospace" }}>
               {proposal.proposal_id}
             </div>
           </div>
