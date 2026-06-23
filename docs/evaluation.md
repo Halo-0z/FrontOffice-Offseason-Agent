@@ -410,6 +410,67 @@ non-zero on argument/runtime errors (e.g. unknown `team_id`).
 - Aggregate metrics into a single report JSON.
 - Fail the harness if `guardrail_violation_count > 0` or `valid_json_rate < 1.0`.
 
+## M5-B Doc / Runbook Verification
+
+M5-B is a **docs-only polish** milestone. It does not add new tests
+or new backend code. Its "verification" is that the existing
+M0–M5-A regression suite still passes and that the new documentation
+matches the actual CLI behavior.
+
+### Current regression suite
+
+The canonical regression command (run from the repo root):
+
+```powershell
+D:\anaconda\python.exe -m pytest backend/app/tests
+```
+
+Expected: all tests pass (currently 325 passed). A known Windows
+`PermissionError` from pytest's atexit cleanup may appear after the
+session ends; it does not affect test results.
+
+### CLI regression commands
+
+These mirror the demo runbook ([docs/demo-runbook.md](demo-runbook.md))
+and are the canonical "does the demo still work" checks:
+
+| Check | Command (abbreviated) | Expected |
+|---|---|---|
+| Default demo | `run_offseason_demo.py` | exit 0, `RECOMMENDED` + `PASS` |
+| Strict budget | `--target-position C --max-salary 15000000 --max-candidates 2` | exit 0, `NO_ACTION` (or `PARTIAL`) + `HOLD` + `no_matching_candidate` |
+| JSON payload | `--format json` | exit 0, valid sorted-keys JSON with `proposal` / `evaluation` / `actions` / `evidence` / `tool_trace` |
+| Unknown team | `--team-id UNKNOWN-TEAM-XYZ` | non-zero exit, clear error mentioning known team ids |
+| No-mutation | (one-liner comparing data files before/after) | `[True, True, True, True]` |
+| Determinism | (one-liner comparing two JSON runs) | `True` |
+
+### Doc consistency checks
+
+The M5-B docs must remain consistent with the actual CLI behavior:
+
+- README.md Quick Start commands must match the actual `argparse`
+  flags supported by `backend/scripts/run_offseason_demo.py`
+  (`--team-id`, `--objective`, `--target-position`, `--max-salary`,
+  `--max-candidates`, `--evidence-query`, `--format text|json`).
+- README.md Demo Scenarios table must match the actual default
+  scenario (`DEM-ATL`, target `C`, max salary 20M, max candidates 2)
+  and the strict-budget scenario (max salary 15M).
+- docs/demo-runbook.md expected results must match the actual CLI
+  output (proposal status, evaluation status, action types, risk
+  codes, exit codes).
+- docs/project-summary.md module list must match the actual services
+  in `backend/app/services/`.
+- docs/architecture.md end-to-end chain must match the actual call
+  sequence (`run_offseason_plan` → `build_structured_proposal` →
+  `evaluate_structured_proposal` → `format_proposal_brief`).
+- docs/agent-workflow.md failure paths must match the actual
+  fallback behavior (no candidates → `NO_ACTION` / `HOLD` /
+  `no_matching_candidate`; missing evidence → `fallback_reason` /
+  `evidence_missing` risk; validation failed → `validation_failed`
+  risk, no approval).
+- No doc may claim the project calls an LLM, uses MCP, connects to
+  the real NBA API, scrapes external salary sites, or auto-approves
+  transactions.
+
 ## Notes
 
 - M0 only declares the cases above as TODOs in the test files. Implementation lands in M1+.

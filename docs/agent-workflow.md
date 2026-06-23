@@ -2,6 +2,32 @@
 
 This document describes the standard offseason workflow the agent follows.
 
+## Current Status (M5-B)
+
+M5-B is a **docs-only polish / runbook / README packaging** milestone.
+It does not add new backend features, does not change any service, and
+does not change any test. It only polishes the project's external
+documentation so the existing M0–M5-A deterministic backend is easy to
+understand, run, and review.
+
+The canonical demo path is now documented in
+[docs/demo-runbook.md](demo-runbook.md). The short project overview is
+in [docs/project-summary.md](project-summary.md). The README is
+restructured into a clean project homepage with Quick Start, demo
+scenarios, architecture overview, guardrails, milestones, and
+limitations.
+
+The deterministic backend itself is unchanged from M5-A:
+
+```
+OffseasonGoal
+  -> run_offseason_plan            (M4-B: deterministic tool orchestrator)
+  -> build_structured_proposal     (M4-C: proposal builder)
+  -> evaluate_structured_proposal  (M4-D: evaluation guardrails)
+  -> format_proposal_brief         (M5-A: CLI viewer, display only)
+  -> human approval gate           (deferred — no auto-approval anywhere)
+```
+
 ## Current Status (M5-A)
 
 M5-A implements the **deterministic proposal viewer / CLI demo**
@@ -234,6 +260,58 @@ add natural-language polish / LLM output on top of the
 | Salary matching fails | Drop trade candidate, log to `fallbacks`. |
 | Evidence missing | Mark plan `low_confidence`, list in `limitations`. |
 | Agent attempts direct mutation | Blocked by guardrail, test `test_agent_guardrails.py`. |
+
+## Failure Paths (deterministic)
+
+The workflow has three structured failure paths. Each produces a
+deterministic, auditable output — never a silent success and never a
+crash.
+
+### No candidates -> NO_ACTION / HOLD / fallback
+
+When `free_agent_service.rank_free_agents_for_team` returns no
+candidates after filtering (e.g. `--max-salary 15000000` filters out
+all centers), the M4-B orchestrator records a `FALLBACK`
+`ToolCallRecord` with a clear `fallback_reason`. The M4-C builder
+derives `ProposalStatus.NO_ACTION` (or `PARTIAL`) and emits a `HOLD`
+`ProposalAction` plus a `no_matching_candidate` `ProposalRisk`. The
+M4-D evaluator does **not** fail this proposal — a `NO_ACTION`
+proposal with a `HOLD` action or a `no_matching_candidate` risk is a
+valid fallback outcome. The M5-A viewer renders the `HOLD` action,
+the `no_matching_candidate` risk, and the `fallback_reasons` section
+so a human can see why no signing was proposed.
+
+### Missing evidence -> fallback / risk
+
+When `evidence_service.get_evidence_by_ids` cannot find a requested
+`evidence_id`, it returns the id in `missing_evidence_ids` with a
+clear `fallback_reason` — it never fabricates a note. The M4-C
+builder surfaces missing ids in `fallback_reasons` and emits an
+`evidence_missing` `ProposalRisk`. The M4-D evaluator emits a
+`missing_risk_for_fallback` `WARNING` if a `fallback_reason` mentions
+missing evidence but no risk backs it. The M5-A viewer renders the
+`fallback_reasons` section and the `evidence_missing` risk so a human
+can see exactly which evidence was not found.
+
+### Validation failed -> issue / risk, no approval
+
+When `transaction_rule_engine.validate_transaction` returns `FAIL`
+for a signing or trade, `trade_simulator.preview_signing` returns a
+`TransactionPreview` with `is_valid=False`,
+`roster_need_after=None`, `depth_chart_after=None`, and a
+"Validation failed" entry in `limitations` — the preview is never
+approved. The M4-C builder emits a `ProposalAction` with
+`validation_status="FAIL"`, `is_valid=False`, and a
+`validation_failed` `ProposalRisk`; the proposal status becomes
+`BLOCKED` (or `PARTIAL` if some actions pass). The M4-D evaluator
+FAILs the proposal if a `FAIL` validation appears as a valid
+recommended action (`approved_without_validation` /
+`invalid_action_recommended` issue). The M5-A viewer renders the
+`validation_status: FAIL` line and the `validation_failed` risk so a
+human can see the action was rejected by the rule engine. No layer
+in the system ever sets the action's `is_valid` to `True` after a
+`FAIL` validation, and no layer ever marks the proposal as
+`APPROVED`.
 
 ## Structured Output Example
 

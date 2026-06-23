@@ -72,6 +72,43 @@ The LLM in the agent layer **does not directly modify system state**. It can onl
 
 All mutations (cap, roster, contract) flow through `transaction_rule_engine` validation **and** human approval. This is enforced by guardrails covered in `docs/agent-workflow.md` and tested in `backend/app/tests/test_agent_guardrails.py`.
 
+## End-to-End Layered Chain (M0–M5-A)
+
+The full deterministic chain is:
+
+```
+data (local demo JSON)
+  -> deterministic services (cap / rules / roster / depth / FA / trade / evidence)
+  -> offseason_agent.run_offseason_plan      (M4-B: tool orchestrator)
+  -> proposal_builder.build_structured_proposal   (M4-C: proposal builder)
+  -> proposal_evaluator.evaluate_structured_proposal  (M4-D: evaluation guardrails)
+  -> proposal_viewer.format_proposal_brief   (M5-A: display only)
+  -> CLI demo / future frontend              (M5-A CLI / future UI)
+  -> human approval gate                     (deferred — no auto-approval)
+```
+
+Layer purity rules (enforced by tests):
+
+- **`data/`** is local demo / sample / simulation JSON. No service,
+  viewer, or CLI run writes to `data/players.json`,
+  `data/contracts.json`, `data/free_agents.json`, or
+  `data/evidence_notes.json`.
+- **`proposal_builder`** is pure: it does NOT re-run any tool, does
+  NOT call `transaction_rule_engine` or `trade_simulator` directly,
+  and does NOT write to disk. It only consumes an `OffseasonAgentRun`.
+- **`proposal_evaluator`** is pure: it does NOT re-run any tool, does
+  NOT call `transaction_rule_engine` or `trade_simulator`, does NOT
+  call any LLM, does NOT use MCP, and does NOT write to disk. It only
+  consumes a `StructuredProposal`. It is an **evaluation layer**, not
+  an approval layer — it does NOT change the proposal's status to
+  "approved" and does NOT approve transactions.
+- **`proposal_viewer`** is pure: it does NOT re-run any tool, does
+  NOT call `transaction_rule_engine` or `trade_simulator`, does NOT
+  call any LLM, does NOT use MCP, and does NOT write to disk. It is a
+  **display layer**, not an approval layer — it only formats existing
+  `StructuredProposal` + `ProposalEvaluation` data and does NOT
+  approve transactions.
+
 ## Data Flow (per offseason goal)
 
 ```
