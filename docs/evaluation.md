@@ -156,6 +156,65 @@ in `test_offseason_agent.py` and the M4-B block of
   tool trace records all key tools; agent does not use MCP/LLM; agent
   does not write data files.
 
+M4-C structured proposal builder deterministic tests (implemented in
+`test_proposal_builder.py` and the M4-C block of
+`test_agent_guardrails.py`):
+
+- `build_structured_proposal` returns a `StructuredProposal` with
+  `requires_human_approval=True` and `sample_data=True`.
+- A SUCCESS agent run with a valid signing preview produces
+  `RECOMMENDED` (or a reasonable status among `RECOMMENDED` /
+  `PARTIAL` / `BLOCKED` / `NO_ACTION`).
+- Every `ProposalAction` has `requires_human_approval=True` — even
+  when `is_valid=True`, the action is NOT approved/finalized.
+- Actions preserve `transaction_id` / `validation_status` / `is_valid`
+  from the underlying `TransactionPreview`.
+- Actions carry `player_name` / `position` / `fit_score` when the
+  `FreeAgentFit` matches the preview.
+- `evidence_refs` come from the evidence bundle's `matched_notes`
+  (never fabricated); `len(evidence_refs) == len(matched_notes)`.
+- Missing evidence ids appear in `fallback_reasons`.
+- No candidates produces `NO_ACTION` / `PARTIAL` and a
+  `no_matching_candidate` risk.
+- Validation-failed previews are NOT marked as approved/recommended
+  valid (`is_valid=False`, status `BLOCKED` / `PARTIAL`,
+  `validation_failed` risk present).
+- `tool_call_trace` is preserved (echoed from the agent run).
+- `limitations` documents MVP scope (M4-C, no LLM, no MCP, previews,
+  human approval, sample/simulation data).
+- `run_goal_and_build_proposal` works end-to-end from an
+  `OffseasonGoal`.
+- No mutation of `data/players.json`, `data/contracts.json`,
+  `data/free_agents.json`, or `data/evidence_notes.json` across a
+  build.
+- The builder does not call any LLM / OpenAI API (no `openai` / `llm`
+  / `anthropic` / `chat_completion` attributes on the module).
+- The builder does not use MCP (no `mcp` / `mcp_client` / `mcp_server`
+  / `MCPClient` attributes on the module).
+- The builder does not call `transaction_rule_engine` (monkeypatch
+  engine to raise — builder still works on a pre-built run).
+- The builder does not call `trade_simulator` (monkeypatch simulator
+  to raise — builder still works on a pre-built run).
+- Determinism: same inputs produce identical `StructuredProposal`
+  across repeated calls (both `build_structured_proposal` and
+  `run_goal_and_build_proposal`).
+- Immutability: `StructuredProposal` / `ProposalAction` /
+  `ProposalRisk` are frozen.
+- `proposal_id` is deterministic and human-readable
+  (`prop-{team_id}-{slugified-objective}`).
+- `cap_summary` / `roster_need_summary` / `depth_chart_summary` are
+  populated from the agent run's structured fields.
+- `sample_data` risk is always present.
+- Action `evidence_ids` are a subset of `evidence_refs` ids, or the
+  missing ones appear in `fallback_reasons` (no silent fabrication).
+- When there are no candidates, the proposal includes a `HOLD` action
+  (or no `SIGNING` action with `is_valid=True`).
+- Guardrails: proposal `requires_human_approval=True`; actions not
+  approved/finalized; builder does not re-validate transactions
+  (monkeypatch engine + simulator to raise — builder still works);
+  `evidence_refs` only from bundle; builder does not use MCP/LLM;
+  builder does not write data files.
+
 ## Evaluation Harness (future, M6)
 
 - Run the agent over a fixed set of `(team, goal)` seeds.

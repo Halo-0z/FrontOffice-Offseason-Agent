@@ -2,49 +2,91 @@
 
 This document describes the standard offseason workflow the agent follows.
 
-## Current Status (M4-B)
+## Current Status (M4-C)
 
-M4-B implements the **deterministic local tool orchestrator**
-(`offseason_agent.run_offseason_plan`). The orchestrator runs a fixed
-sequence of internal tool calls and returns a structured
-`OffseasonAgentRun` with a full `tool_call_trace`. This is **not** an
-MCP server, **not** an MCP client, **not** an LLM agent, and **not**
-an OpenAI function-calling harness — it is a purely deterministic
-local tool registry/orchestrator. No LLM, no network, no disk writes.
+M4-C implements the **deterministic structured proposal builder**
+(`proposal_builder.build_structured_proposal`). The builder consumes
+an M4-B `OffseasonAgentRun` and produces a frontend-friendly
+`StructuredProposal` with `proposal_id`, `status`
+(`RECOMMENDED` / `PARTIAL` / `BLOCKED` / `NO_ACTION`),
+`recommended_actions`, `risks`, `evidence_refs`, `tool_call_trace`,
+short deterministic summaries, `fallback_reasons`, and `limitations`.
+This is **not** an MCP server, **not** an MCP client, **not** an LLM
+agent, and **not** an OpenAI function-calling harness — it is a purely
+deterministic proposal builder. No LLM, no network, no disk writes.
 
-The final natural-language proposal/brief output is deferred to M4-C.
+Natural-language polish / LLM output is deferred to a later milestone.
 
-## M4-B Flow (implemented)
+## M4 Flow (implemented)
 
 ```
 goal (OffseasonGoal)
-  -> cap_sheet_service.summarize_cap_sheet(team_id)
-  -> roster_need_service.evaluate_roster_needs(team_id)
-  -> depth_chart_projector.project_current_depth_chart(team_id)
-  -> free_agent_service.rank_free_agents_for_team(team_id)
-       filtered by goal.target_positions / goal.max_salary / goal.max_candidates
-  -> [for each top fit] trade_simulator.preview_signing(SigningTransaction)
-       transaction_type picked conservatively:
-         salary <= minimum_salary -> MINIMUM_SIGNING
-         salary <= MLE            -> MLE_SIGNING
-         otherwise                -> SIMPLE_FA_SIGNING
-       every preview has requires_human_approval=True
-  -> evidence_service.search_evidence(query, team_id)
-     + evidence_service.get_evidence_by_ids(fit evidence_ids)
-       merged into one EvidenceBundle (dedup by evidence_id)
-  -> OffseasonAgentRun
-       status: SUCCESS / PARTIAL / FAILED (derived from tool_call_trace)
-       requires_human_approval: True (always)
-       sample_data: True (always)
-       limitations: MVP scope notes
-       tool_call_trace: one ToolCallRecord per call
+  -> [M4-B] run_offseason_plan(goal)
+       -> cap_sheet_service.summarize_cap_sheet(team_id)
+       -> roster_need_service.evaluate_roster_needs(team_id)
+       -> depth_chart_projector.project_current_depth_chart(team_id)
+       -> free_agent_service.rank_free_agents_for_team(team_id)
+            filtered by goal.target_positions / goal.max_salary / goal.max_candidates
+       -> [for each top fit] trade_simulator.preview_signing(SigningTransaction)
+            transaction_type picked conservatively:
+              salary <= minimum_salary -> MINIMUM_SIGNING
+              salary <= MLE            -> MLE_SIGNING
+              otherwise                -> SIMPLE_FA_SIGNING
+            every preview has requires_human_approval=True
+       -> evidence_service.search_evidence(query, team_id)
+          + evidence_service.get_evidence_by_ids(fit evidence_ids)
+            merged into one EvidenceBundle (dedup by evidence_id)
+       -> OffseasonAgentRun
+            status: SUCCESS / PARTIAL / FAILED (derived from tool_call_trace)
+            requires_human_approval: True (always)
+            sample_data: True (always)
+            limitations: MVP scope notes
+            tool_call_trace: one ToolCallRecord per call
+  -> [M4-C] build_structured_proposal(agent_run)
+       -> derive ProposalStatus from agent_run.status + previews
+       -> build ProposalAction per signing preview
+            (transaction_id / validation_status / is_valid /
+             player_name / position / fit_score / matched_need /
+             cap_impact_summary / roster_impact_summary /
+             depth_chart_impact_summary / evidence_ids /
+             requires_human_approval=True)
+       -> flatten EvidenceBundle.matched_notes -> ProposalEvidenceRef
+            (never fabricate evidence ids)
+       -> build ProposalRisk list
+            (evidence_missing / validation_failed /
+             no_matching_candidate / cap_pressure / sample_data)
+       -> echo tool_call_trace from agent_run
+       -> build short deterministic cap/roster/depth summaries
+       -> collect fallback_reasons from trace + bundle
+       -> StructuredProposal
+            proposal_id: deterministic (team_id + slugified objective)
+            requires_human_approval: True (always)
+            sample_data: True (always)
+            limitations: MVP scope notes
+  -> frontend / brief output
+       (natural-language polish / LLM output deferred to a later milestone)
 ```
 
-Each tool call is wrapped in a try/except. On failure the orchestrator
-records a `FAILED` `ToolCallRecord` and continues (unless `team_id` is
-unknown, which is a critical failure). When a tool returns an empty
-result (e.g. no free-agent candidates after filtering), the trace
-records `FALLBACK` with a clear `fallback_reason`.
+Each tool call in the M4-B run is wrapped in a try/except. On failure
+the orchestrator records a `FAILED` `ToolCallRecord` and continues
+(unless `team_id` is unknown, which is a critical failure). When a
+tool returns an empty result (e.g. no free-agent candidates after
+filtering), the trace records `FALLBACK` with a clear
+`fallback_reason`.
+
+The M4-C builder is **pure**: it does NOT re-run any tool, does NOT
+call `transaction_rule_engine` or `trade_simulator` directly, and
+does NOT write to disk. It only consumes the `OffseasonAgentRun`.
+
+## M4-B Flow (implemented)
+
+The M4-B portion of the M4 Flow above (from `goal` to
+`OffseasonAgentRun`) is the deterministic core. Each tool call is
+wrapped in a try/except. On failure the orchestrator records a
+`FAILED` `ToolCallRecord` and continues (unless `team_id` is unknown,
+which is a critical failure). When a tool returns an empty result
+(e.g. no free-agent candidates after filtering), the trace records
+`FALLBACK` with a clear `fallback_reason`.
 
 ### Tool Call Trace
 
@@ -69,12 +111,25 @@ Every `ToolCallRecord` contains:
 mean any transaction was approved. Every output is still a preview
 that requires human approval.
 
-## Standard Flow (target M4-C+)
+## M4-C Proposal Status Derivation
 
-The M4-B flow above is the deterministic core. M4-C will add the
-final structured proposal/brief output (natural-language explanation,
-plan cards, etc.) on top of the `OffseasonAgentRun`. The full target
-flow:
+The `proposal_builder` derives `ProposalStatus` from the agent run:
+
+- `agent_run.status == FAILED` → `BLOCKED`.
+- No fits and no previews → `NO_ACTION`.
+- Previews exist but ALL failed validation → `BLOCKED`.
+- At least one valid preview and `agent_run.status == SUCCESS` → `RECOMMENDED`.
+- Otherwise (mixed valid/failed, or `agent_run.status == PARTIAL`) → `PARTIAL`.
+
+`RECOMMENDED` only means the orchestrator ran cleanly and at least
+one preview passed validation — it does NOT mean any transaction was
+approved. Every action still has `requires_human_approval=True`.
+
+## Standard Flow (target later milestones)
+
+The M4 Flow above is the deterministic core. Later milestones will
+add natural-language polish / LLM output on top of the
+`StructuredProposal`. The full target flow:
 
 1. **Receive team + offseason goal.** Input: `team_id`, `goal`.
 2. **Load cap sheet.** `cap_sheet_service` → current cap space, aprons, exceptions.
@@ -84,8 +139,9 @@ flow:
 6. **Preview signing actions.** `trade_simulator.preview_signing` per top fit (always validates via `transaction_rule_engine`).
 7. **Retrieve supporting evidence.** `evidence_service.search_evidence` + `get_evidence_by_ids` → `EvidenceBundle`.
 8. **Assemble structured run.** `OffseasonAgentRun` with `tool_call_trace`. **(Implemented in M4-B.)**
-9. **Generate structured proposal/brief.** Natural-language plan cards, rationale, risk notes. **(Deferred to M4-C.)**
-10. **Wait for human approval.** No state mutation until a human approves.
+9. **Build structured proposal.** `StructuredProposal` with actions, risks, evidence refs. **(Implemented in M4-C.)**
+10. **Natural-language polish / LLM output.** Plan cards, rationale, risk notes. **(Deferred to a later milestone.)**
+11. **Wait for human approval.** No state mutation until a human approves.
 
 ## Guardrails
 

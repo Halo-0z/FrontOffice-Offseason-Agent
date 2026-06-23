@@ -182,3 +182,27 @@ and **not** an OpenAI function-calling harness — it is a purely
 deterministic local tool registry/orchestrator. No LLM, no network,
 no disk writes, no real NBA data. The final natural-language
 proposal/brief output is deferred to M4-C.
+
+M4-C implemented: deterministic `proposal_builder` that converts an
+M4-B `OffseasonAgentRun` into a frontend-friendly
+`StructuredProposal`. `build_structured_proposal(agent_run)` produces
+a stable, immutable proposal object with `proposal_id`, `status`
+(`RECOMMENDED` / `PARTIAL` / `BLOCKED` / `NO_ACTION`),
+`recommended_actions` (each a `ProposalAction` with
+`action_type` `SIGNING` / `TRADE` / `HOLD`, `validation_status`,
+`is_valid`, `cap_impact_summary`, `roster_impact_summary`,
+`depth_chart_impact_summary`, `evidence_ids`,
+`requires_human_approval=True`), `risks` (each a `ProposalRisk` with
+`code` / `level` / `summary` — e.g. `evidence_missing`,
+`validation_failed`, `no_matching_candidate`, `cap_pressure`,
+`sample_data`), `evidence_refs` (flattened from the bundle's
+`matched_notes`, never fabricated), `tool_call_trace` (echoed from
+the agent run), short deterministic `cap_summary` /
+`roster_need_summary` / `depth_chart_summary` strings,
+`fallback_reasons`, and `limitations`. The builder does NOT call any
+LLM, does NOT use MCP, does NOT call `transaction_rule_engine` or
+`trade_simulator` directly, and does NOT write to disk. Every action
+is a preview that requires human approval. The convenience wrapper
+`run_goal_and_build_proposal(goal)` runs `run_offseason_plan` then
+`build_structured_proposal`. Natural-language polish / LLM output is
+deferred to a later milestone.

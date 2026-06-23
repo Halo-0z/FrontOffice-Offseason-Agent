@@ -393,3 +393,140 @@ def test_agent_does_not_write_data_files() -> None:
     after = {f: f.read_bytes() for f in files}
     for f in files:
         assert before[f] == after[f], f"agent must not mutate {f.name}"
+
+
+# --------------------------------------------------------------------------- #
+# M4-C guardrails: the proposal_builder must require human approval,
+# must not mark previews as approved, must not bypass the agent_run to
+# re-validate transactions, must only cite evidence from the bundle,
+# must not use MCP/LLM, and must not write data files.
+# --------------------------------------------------------------------------- #
+
+
+def _m4c_goal():
+    from backend.app.models.agent import OffseasonGoal
+
+    return OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+
+
+def test_proposal_requires_human_approval_is_true() -> None:
+    """The ``StructuredProposal`` must always have
+    ``requires_human_approval=True`` — the builder never approves
+    anything."""
+    from backend.app.services.proposal_builder import run_goal_and_build_proposal
+
+    proposal = run_goal_and_build_proposal(_m4c_goal(), DATA_DIR)
+    assert proposal.requires_human_approval is True
+
+
+def test_proposal_actions_cannot_be_marked_approved_or_finalized() -> None:
+    """Every ``ProposalAction`` must have ``requires_human_approval=True``.
+    Even when ``is_valid=True``, the action is NOT approved/finalized."""
+    from backend.app.services.proposal_builder import run_goal_and_build_proposal
+
+    proposal = run_goal_and_build_proposal(_m4c_goal(), DATA_DIR)
+    for action in proposal.recommended_actions:
+        assert action.requires_human_approval is True
+        # Even a valid action is not "approved".
+        if action.is_valid:
+            assert action.requires_human_approval is True
+
+
+def test_proposal_builder_does_not_re_validate_transactions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``build_structured_proposal`` must NOT call
+    ``transaction_rule_engine`` or ``trade_simulator`` to re-validate
+    transactions. It only consumes the ``OffseasonAgentRun``. If we
+    patch the engine/simulator to raise, the builder must still work
+    on a pre-built run."""
+    from backend.app.services import transaction_rule_engine as engine
+    from backend.app.services import trade_simulator as sim
+    from backend.app.services.offseason_agent import run_offseason_plan
+    from backend.app.services.proposal_builder import build_structured_proposal
+
+    def _boom_engine(*args, **kwargs):
+        raise AssertionError(
+            "proposal_builder must not call transaction_rule_engine"
+        )
+
+    def _boom_sim(*args, **kwargs):
+        raise AssertionError("proposal_builder must not call trade_simulator")
+
+    monkeypatch.setattr(engine, "validate_transaction", _boom_engine)
+    monkeypatch.setattr(engine, "validate_signing", _boom_engine)
+    monkeypatch.setattr(engine, "validate_trade", _boom_engine)
+    monkeypatch.setattr(sim, "preview_signing", _boom_sim)
+    monkeypatch.setattr(sim, "preview_trade", _boom_sim)
+    monkeypatch.setattr(sim, "preview_transaction", _boom_sim)
+
+    # Build the run BEFORE patching (so run_offseason_plan works), then
+    # patch, then build the proposal. The builder must not call any of
+    # the patched functions.
+    run = run_offseason_plan(_m4c_goal(), DATA_DIR)
+    monkeypatch.setattr(engine, "validate_transaction", _boom_engine)
+    monkeypatch.setattr(sim, "preview_signing", _boom_sim)
+    proposal = build_structured_proposal(run)
+    assert proposal is not None
+
+
+def test_proposal_evidence_refs_only_from_evidence_bundle() -> None:
+    """Every ``ProposalEvidenceRef`` must correspond to a
+    ``matched_notes`` entry in the agent run's evidence bundle. The
+    builder must not fabricate evidence ids."""
+    from backend.app.services.offseason_agent import run_offseason_plan
+    from backend.app.services.proposal_builder import build_structured_proposal
+
+    run = run_offseason_plan(_m4c_goal(), DATA_DIR)
+    proposal = build_structured_proposal(run)
+    bundle_note_ids = {n.evidence_id for n in run.evidence_bundle.matched_notes}
+    ref_ids = {r.evidence_id for r in proposal.evidence_refs}
+    assert ref_ids == bundle_note_ids
+    # No ref should have an id that's not in the bundle.
+    for ref in proposal.evidence_refs:
+        assert ref.evidence_id in bundle_note_ids
+
+
+def test_proposal_builder_does_not_use_mcp_or_llm() -> None:
+    """The proposal_builder module must not import or expose any MCP or
+    LLM client attributes."""
+    from backend.app.services import proposal_builder as builder_mod
+
+    for forbidden in (
+        "mcp",
+        "mcp_client",
+        "mcp_server",
+        "MCPClient",
+        "openai",
+        "llm",
+        "anthropic",
+        "chat_completion",
+    ):
+        assert not hasattr(builder_mod, forbidden), (
+            f"proposal_builder must not expose {forbidden!r}"
+        )
+
+
+def test_proposal_builder_does_not_write_data_files() -> None:
+    """Running the proposal builder must not mutate any of the four
+    core data files."""
+    from backend.app.services.proposal_builder import run_goal_and_build_proposal
+
+    files = [
+        DATA_DIR / "players.json",
+        DATA_DIR / "contracts.json",
+        DATA_DIR / "free_agents.json",
+        DATA_DIR / "evidence_notes.json",
+    ]
+    before = {f: f.read_bytes() for f in files}
+    run_goal_and_build_proposal(_m4c_goal(), DATA_DIR)
+    after = {f: f.read_bytes() for f in files}
+    for f in files:
+        assert before[f] == after[f], f"proposal_builder must not mutate {f.name}"
