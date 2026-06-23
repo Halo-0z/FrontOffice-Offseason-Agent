@@ -151,3 +151,78 @@ class ProjectedDepthChart:
     slots: Tuple[DepthChartSlot, ...] = field(default_factory=tuple)
     roster_count: int = 0
     limitations: Tuple[str, ...] = field(default_factory=tuple)
+
+
+# --------------------------------------------------------------------------- #
+# M3-B: Free-agent matching + transaction preview models
+# --------------------------------------------------------------------------- #
+#
+# These two models are placed in ``roster.py`` (rather than
+# ``transaction.py``) because they are fundamentally roster-shaped:
+# ``FreeAgentFit`` is a roster-player candidate annotated against a
+# position need, and ``TransactionPreview`` composes roster-need /
+# depth-chart / cap summaries around a validation result. Keeping them
+# here co-locates the roster-domain models; ``transaction.py`` stays
+# focused on the proposal + validation verdict shapes.
+
+
+@dataclass(frozen=True)
+class FreeAgentFit:
+    """A single free agent scored against a team's roster needs.
+
+    Attributes:
+        free_agent_id: Stable free-agent identifier.
+        name: Display name (demo/fictional).
+        position: Primary position (``Position``).
+        role: Free-form role label, e.g. ``"starter"`` / ``"bench"``.
+        expected_salary: Expected first-season salary, in USD.
+        matched_need: The ``PositionNeed`` this candidate was matched
+            against, or ``None`` if the team had no needs.
+        fit_score: Deterministic score in ``[0.0, 1.0]``. Higher is
+            better. Computed by ``free_agent_service`` from position
+            match, role match, salary affordability, and need priority.
+        evidence_ids: Evidence supporting this candidate.
+        limitations: Notes about MVP simplifications.
+    """
+
+    free_agent_id: str
+    name: str
+    position: Position
+    role: str
+    expected_salary: int
+    matched_need: Optional["PositionNeed"] = None
+    fit_score: float = 0.0
+    evidence_ids: Tuple[str, ...] = field(default_factory=tuple)
+    limitations: Tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class TransactionPreview:
+    """A structured preview of a proposed signing or trade.
+
+    This is a **proposal/preview** object, never an approved
+    transaction. ``requires_human_approval`` is always ``True``.
+
+    Attributes:
+        transaction_id: Transaction identifier echoed from the proposal.
+        validation_result: The M2 ``ValidationResult`` from
+            ``transaction_rule_engine.validate_transaction``.
+        roster_need_after: Roster need report computed on the preview
+            roster, or ``None`` if validation failed (in which case the
+            preview falls back to current state and documents it in
+            ``limitations``).
+        depth_chart_after: Depth chart computed on the preview roster,
+            or ``None`` if validation failed.
+        cap_summary_after: Cap summary after the transaction, taken
+            from the validation result when available.
+        requires_human_approval: Always ``True``.
+        limitations: Notes about MVP simplifications and any fallback.
+    """
+
+    transaction_id: str
+    validation_result: object = None
+    roster_need_after: Optional["RosterNeedReport"] = None
+    depth_chart_after: Optional["ProjectedDepthChart"] = None
+    cap_summary_after: Optional[object] = None
+    requires_human_approval: bool = True
+    limitations: Tuple[str, ...] = field(default_factory=tuple)

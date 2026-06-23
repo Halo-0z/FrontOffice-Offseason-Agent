@@ -123,3 +123,23 @@ with one `DepthChartSlot` per position (PG/SG/SF/PF/C), where the
 first player at each position is the starter, the rest are backups,
 and `need_level` is `high` (empty) / `medium` (1 player) / `low` (2+).
 No LLM, no proposals, no roster state writes.
+
+M3-B implemented: deterministic `free_agent_service` and
+`trade_simulator`. `free_agent_service` reads demo free agents from
+`data/free_agents.json`, joins them with `evaluate_roster_needs`, and
+returns `FreeAgentFit` candidates scored by position match, role
+keyword, and salary affordability (deterministic, sorted by
+`fit_score` desc then `free_agent_id` asc). It does NOT call
+`transaction_rule_engine` and does NOT generate `SigningTransaction`
+objects — it only *suggests* candidates. `trade_simulator` exposes
+`preview_signing` / `preview_trade` / `preview_transaction`, each of
+which ALWAYS calls `transaction_rule_engine.validate_transaction`
+first; on FAIL it returns a `TransactionPreview` with
+`roster_need_after`/`depth_chart_after` set to `None` and a fallback
+note in `limitations` (never approved); on PASS it builds an in-memory
+preview roster and computes the post-transaction `RosterNeedReport`
+and `ProjectedDepthChart` via M3-A projectors. Every preview has
+`requires_human_approval=True`. No LLM, no disk writes, no real NBA
+data — all salaries/contracts/free agents are demo/sample/simulation
+JSON. This is **not** a complete NBA trade simulator; multi-year
+contract decay, Bird rights, and sign-and-trade rules are deferred.

@@ -46,6 +46,40 @@ empty slot → `starter=None` + `need_level=high`, single-player slot →
 `medium`, multi-player slot → `low`, starters/backups derived from
 roster (not hardcoded), determinism, and immutability.
 
+M3-B free-agent matching & transaction preview deterministic tests
+(implemented in `test_free_agent_service.py`,
+`test_trade_simulator.py`, and the M3-B block of
+`test_agent_guardrails.py`):
+
+- Free-agent matching: load `data/free_agents.json` (non-empty), each
+  free agent preserves `evidence_ids`, `rank_free_agents_for_team`
+  returns `FreeAgentFit` objects with `fit_score` in `[0,1]`, ATL
+  (which needs C) matches the C candidate `fa-005` against the C need
+  with `fit_score > 0.5`, HIGH-priority match beats MEDIUM-priority
+  match, `fit_score` deterministic across repeated calls and across
+  all 3 demo teams, unknown `team_id` raises `TeamNotFoundError`, no
+  mutation of `data/free_agents.json`, service does NOT call
+  `transaction_rule_engine` (monkeypatch spy), service does NOT return
+  `SigningTransaction` objects, `FreeAgentFit` is immutable.
+- Transaction preview: `preview_signing` calls `validate_transaction`
+  exactly once (spy), valid signing preview returns
+  `requires_human_approval=True` with structured `roster_need_after` /
+  `depth_chart_after` / `cap_summary_after`, invalid signing preview
+  has `is_valid=False` with `roster_need_after=None` /
+  `depth_chart_after=None` and a "Validation failed" limitation,
+  preview does not mutate `data/players.json` or `data/contracts.json`,
+  `preview_trade` on a valid trade returns a structured preview, invalid
+  trade returns the validation-failed fallback, `preview_transaction`
+  dispatches signing/trade correctly, unsupported transaction type
+  raises `TransactionRuleEngineError`, preview is deterministic and
+  immutable.
+- Guardrails: every `TransactionPreview` (pass or fail) has
+  `requires_human_approval=True`; a failed preview cannot be flipped to
+  approved (frozen dataclass); `free_agent_service` cannot bypass the
+  rule engine (monkeypatch engine to raise — FA matching still works,
+  and `FreeAgentFit` has no `is_valid` / `status` /
+  `requires_human_approval` field).
+
 ## Evaluation Harness (future, M6)
 
 - Run the agent over a fixed set of `(team, goal)` seeds.

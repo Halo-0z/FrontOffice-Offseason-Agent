@@ -121,7 +121,69 @@ def test_rule_engine_does_not_write_to_contracts_json() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# M4 TODOs (not implemented in M2)
+# M3-B guardrails: preview requires human approval; failed validation
+# cannot be approved; free_agent_service cannot bypass rule engine.
+# --------------------------------------------------------------------------- #
+
+
+def test_preview_always_requires_human_approval() -> None:
+    """Every ``TransactionPreview`` — pass or fail — must require human
+    approval. The agent (M4) cannot bypass this."""
+    from backend.app.services.trade_simulator import preview_signing
+
+    # A passing preview.
+    good = preview_signing(_minimum_signing("tx-m3b-good", salary=1_000_000), DATA_DIR)
+    assert good.requires_human_approval is True
+    # A failing preview.
+    bad = preview_signing(_minimum_signing("tx-m3b-bad", salary=5_000_000), DATA_DIR)
+    assert bad.requires_human_approval is True
+
+
+def test_failed_validation_preview_cannot_be_treated_as_approved() -> None:
+    """A failed ``TransactionPreview`` must have ``is_valid=False`` and
+    no structured after-state. Downstream code must not be able to flip
+    the verdict."""
+    from backend.app.services.trade_simulator import preview_signing
+
+    preview = preview_signing(_minimum_signing("tx-m3b-fail", salary=5_000_000), DATA_DIR)
+    assert preview.validation_result.is_valid is False
+    assert preview.roster_need_after is None
+    assert preview.depth_chart_after is None
+    # Frozen: cannot flip.
+    with pytest.raises(Exception):
+        preview.requires_human_approval = False  # type: ignore[misc]
+
+
+def test_free_agent_service_cannot_bypass_rule_engine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``free_agent_service`` returns ``FreeAgentFit`` suggestions only —
+    never an approved transaction. Patching the rule engine to raise
+    must not affect free-agent matching, AND the matching output must
+    not be a ``ValidationResult`` or carry an approval flag."""
+    from backend.app.models.roster import FreeAgentFit
+    from backend.app.services import transaction_rule_engine as engine
+    from backend.app.services.free_agent_service import rank_free_agents_for_team
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("free_agent_service must not call the rule engine")
+
+    monkeypatch.setattr(engine, "validate_transaction", _boom)
+    monkeypatch.setattr(engine, "validate_signing", _boom)
+    monkeypatch.setattr(engine, "validate_trade", _boom)
+
+    fits = rank_free_agents_for_team("DEM-ATL", DATA_DIR)
+    assert len(fits) > 0
+    for f in fits:
+        assert isinstance(f, FreeAgentFit)
+        # FreeAgentFit has no is_valid / status / approval field.
+        assert not hasattr(f, "is_valid")
+        assert not hasattr(f, "status")
+        assert not hasattr(f, "requires_human_approval")
+
+
+# --------------------------------------------------------------------------- #
+# M4 TODOs (not implemented in M2/M3-B)
 # --------------------------------------------------------------------------- #
 
 # TODO(M4): test_agent_blocked_from_writing_roster.

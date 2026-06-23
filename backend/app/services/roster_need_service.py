@@ -99,6 +99,28 @@ def _load_players_raw(data_dir: Path | str) -> list[dict]:
     return players
 
 
+def get_player_by_id(
+    player_id: str, data_dir: Path | str = "data"
+) -> dict | None:
+    """Return the raw player dict for ``player_id``, or ``None``.
+
+    Searches across ALL teams in ``players.json`` (a player may have
+    been traded, so we do not scope by team). Returns the raw dict so
+    callers (e.g. ``trade_simulator``) can read ``position``, ``name``,
+    and ``role`` without re-parsing the file.
+
+    Returns ``None`` if no player matches. ``PlayersFileMissingError``
+    is propagated if ``players.json`` itself is missing/malformed.
+    """
+    players = _load_players_raw(data_dir)
+    for p in players:
+        if not isinstance(p, dict):
+            continue
+        if str(p.get("player_id")) == player_id:
+            return p
+    return None
+
+
 def _load_contracts_map(data_dir: Path | str) -> Dict[str, dict]:
     """Load ``contracts.json`` as a ``player_id -> contract dict`` map.
 
