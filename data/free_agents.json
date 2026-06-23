@@ -1,0 +1,13 @@
+{
+  "sample_data": true,
+  "data_type": "simulation",
+  "note": "DEMO/SAMPLE/SIMULATION free agents only. Fictional names and expected salaries.",
+  "free_agents": [
+    { "free_agent_id": "fa-001", "player_id": "fa-001", "name": "Demo FA Mike", "position": "PG", "expected_salary": 12000000, "role": "starter", "evidence_ids": ["ev-001", "ev-003"], "sample_data": true },
+    { "free_agent_id": "fa-002", "player_id": "fa-002", "name": "Demo FA November", "position": "SG", "expected_salary": 9000000, "role": "bench", "evidence_ids": ["ev-002"], "sample_data": true },
+    { "free_agent_id": "fa-003", "player_id": "fa-003", "name": "Demo FA Oscar", "position": "SF", "expected_salary": 15000000, "role": "starter", "evidence_ids": ["ev-004"], "sample_data": true },
+    { "free_agent_id": "fa-004", "player_id": "fa-004", "name": "Demo FA Papa", "position": "PF", "expected_salary": 7000000, "role": "bench", "evidence_ids": ["ev-005"], "sample_data": true },
+    { "free_agent_id": "fa-005", "player_id": "fa-005", "name": "Demo FA Quebec", "position": "C", "expected_salary": 18000000, "role": "starter", "evidence_ids": ["ev-001", "ev-005"], "sample_data": true },
+    { "free_agent_id": "fa-006", "player_id": "fa-006", "name": "Demo FA Romeo", "position": "PG", "expected_salary": 5000000, "role": "bench", "evidence_ids": [], "sample_data": true }
+  ]
+}

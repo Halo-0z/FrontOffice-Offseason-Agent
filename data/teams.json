@@ -1,0 +1,46 @@
+{
+  "sample_data": true,
+  "data_type": "simulation",
+  "note": "DEMO/SAMPLE/SIMULATION data only. Not real NBA data. Do not treat as confirmed transactions.",
+  "teams": [
+    {
+      "team_id": "DEM-ATL",
+      "name": "Atlanta Aces",
+      "abbreviation": "ACL",
+      "market": "Atlanta",
+      "sample_data": true,
+      "cap_config": {
+        "salary_cap": 140000000,
+        "luxury_tax_line": 170000000,
+        "first_apron": 178000000,
+        "second_apron": 189000000
+      }
+    },
+    {
+      "team_id": "DEM-PDX",
+      "name": "Portland Pines",
+      "abbreviation": "PNE",
+      "market": "Portland",
+      "sample_data": true,
+      "cap_config": {
+        "salary_cap": 140000000,
+        "luxury_tax_line": 170000000,
+        "first_apron": 178000000,
+        "second_apron": 189000000
+      }
+    },
+    {
+      "team_id": "DEM-CHI",
+      "name": "Chicago Gales",
+      "abbreviation": "GLE",
+      "market": "Chicago",
+      "sample_data": true,
+      "cap_config": {
+        "salary_cap": 140000000,
+        "luxury_tax_line": 170000000,
+        "first_apron": 178000000,
+        "second_apron": 189000000
+      }
+    }
+  ]
+}

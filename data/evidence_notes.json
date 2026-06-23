@@ -1,0 +1,47 @@
+{
+  "sample_data": true,
+  "data_type": "simulation",
+  "note": "DEMO/SAMPLE/SIMULATION evidence notes only. Fictional analyst notes, not real reporting.",
+  "evidence_notes": [
+    {
+      "evidence_id": "ev-001",
+      "title": "Demo need: starting PG",
+      "summary": "Simulation note: team lacks a true starting PG; roster analysis flags PG as top need.",
+      "source_type": "internal_simulation",
+      "reliability": 0.8,
+      "sample_data": true
+    },
+    {
+      "evidence_id": "ev-002",
+      "title": "Demo need: bench scoring",
+      "summary": "Simulation note: second unit lacks scoring punch; bench SG candidate identified.",
+      "source_type": "internal_simulation",
+      "reliability": 0.7,
+      "sample_data": true
+    },
+    {
+      "evidence_id": "ev-003",
+      "title": "Demo cap space check",
+      "summary": "Simulation note: team has ~12M in cap space, enough for a mid-level PG deal.",
+      "source_type": "internal_simulation",
+      "reliability": 0.9,
+      "sample_data": true
+    },
+    {
+      "evidence_id": "ev-004",
+      "title": "Demo fit: 3-and-D wing",
+      "summary": "Simulation note: target wing fits need for spacing and perimeter defense.",
+      "source_type": "internal_simulation",
+      "reliability": 0.75,
+      "sample_data": true
+    },
+    {
+      "evidence_id": "ev-005",
+      "title": "Demo risk: second apron",
+      "summary": "Simulation note: aggressive signing would push team close to second apron; caution advised.",
+      "source_type": "internal_simulation",
+      "reliability": 0.85,
+      "sample_data": true
+    }
+  ]
+}

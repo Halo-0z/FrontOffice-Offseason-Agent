@@ -1,0 +1,19 @@
+{
+  "sample_data": true,
+  "data_type": "simulation",
+  "note": "DEMO/SAMPLE/SIMULATION data only. Not real NBA players. Fictional names used.",
+  "players": [
+    { "player_id": "pl-001", "name": "Demo Player Alpha", "team_id": "DEM-ATL", "position": "PG", "role": "starter", "sample_data": true },
+    { "player_id": "pl-002", "name": "Demo Player Bravo", "team_id": "DEM-ATL", "position": "SG", "role": "starter", "sample_data": true },
+    { "player_id": "pl-003", "name": "Demo Player Charlie", "team_id": "DEM-ATL", "position": "SF", "role": "starter", "sample_data": true },
+    { "player_id": "pl-004", "name": "Demo Player Delta", "team_id": "DEM-ATL", "position": "PF", "role": "bench", "sample_data": true },
+    { "player_id": "pl-005", "name": "Demo Player Echo", "team_id": "DEM-PDX", "position": "PG", "role": "starter", "sample_data": true },
+    { "player_id": "pl-006", "name": "Demo Player Foxtrot", "team_id": "DEM-PDX", "position": "SG", "role": "bench", "sample_data": true },
+    { "player_id": "pl-007", "name": "Demo Player Golf", "team_id": "DEM-PDX", "position": "C", "role": "starter", "sample_data": true },
+    { "player_id": "pl-008", "name": "Demo Player Hotel", "team_id": "DEM-PDX", "position": "PF", "role": "starter", "sample_data": true },
+    { "player_id": "pl-009", "name": "Demo Player India", "team_id": "DEM-CHI", "position": "PG", "role": "bench", "sample_data": true },
+    { "player_id": "pl-010", "name": "Demo Player Juliet", "team_id": "DEM-CHI", "position": "SF", "role": "starter", "sample_data": true },
+    { "player_id": "pl-011", "name": "Demo Player Kilo", "team_id": "DEM-CHI", "position": "C", "role": "bench", "sample_data": true },
+    { "player_id": "pl-012", "name": "Demo Player Lima", "team_id": "DEM-CHI", "position": "SG", "role": "starter", "sample_data": true }
+  ]
+}

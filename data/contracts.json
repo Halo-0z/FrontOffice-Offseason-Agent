@@ -1,0 +1,19 @@
+{
+  "sample_data": true,
+  "data_type": "simulation",
+  "note": "DEMO/SAMPLE/SIMULATION contracts only. Fictional salary figures, not real NBA contracts.",
+  "contracts": [
+    { "contract_id": "ct-001", "player_id": "pl-001", "team_id": "DEM-ATL", "salary": 28000000, "years_remaining": 2, "guaranteed": true, "sample_data": true },
+    { "contract_id": "ct-002", "player_id": "pl-002", "team_id": "DEM-ATL", "salary": 22000000, "years_remaining": 3, "guaranteed": true, "sample_data": true },
+    { "contract_id": "ct-003", "player_id": "pl-003", "team_id": "DEM-ATL", "salary": 18000000, "years_remaining": 1, "guaranteed": true, "sample_data": true },
+    { "contract_id": "ct-004", "player_id": "pl-004", "team_id": "DEM-ATL", "salary": 6000000, "years_remaining": 2, "guaranteed": false, "sample_data": true },
+    { "contract_id": "ct-005", "player_id": "pl-005", "team_id": "DEM-PDX", "salary": 30000000, "years_remaining": 3, "guaranteed": true, "sample_data": true },
+    { "contract_id": "ct-006", "player_id": "pl-006", "team_id": "DEM-PDX", "salary": 4000000, "years_remaining": 1, "guaranteed": false, "sample_data": true },
+    { "contract_id": "ct-007", "player_id": "pl-007", "team_id": "DEM-PDX", "salary": 26000000, "years_remaining": 2, "guaranteed": true, "sample_data": true },
+    { "contract_id": "ct-008", "player_id": "pl-008", "team_id": "DEM-PDX", "salary": 14000000, "years_remaining": 3, "guaranteed": true, "sample_data": true },
+    { "contract_id": "ct-009", "player_id": "pl-009", "team_id": "DEM-CHI", "salary": 5000000, "years_remaining": 1, "guaranteed": false, "sample_data": true },
+    { "contract_id": "ct-010", "player_id": "pl-010", "team_id": "DEM-CHI", "salary": 24000000, "years_remaining": 2, "guaranteed": true, "sample_data": true },
+    { "contract_id": "ct-011", "player_id": "pl-011", "team_id": "DEM-CHI", "salary": 8000000, "years_remaining": 2, "guaranteed": true, "sample_data": true },
+    { "contract_id": "ct-012", "player_id": "pl-012", "team_id": "DEM-CHI", "salary": 20000000, "years_remaining": 3, "guaranteed": true, "sample_data": true }
+  ]
+}
