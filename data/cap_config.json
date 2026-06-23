@@ -1,0 +1,16 @@
+{
+  "sample_data": true,
+  "data_type": "simulation",
+  "note": "DEMO/SAMPLE/SIMULATION league cap config only. Fictional figures, not the real NBA CBA.",
+  "cap_config": {
+    "season": "2025-2026",
+    "salary_cap": 140000000,
+    "luxury_tax": 170000000,
+    "first_apron": 178000000,
+    "second_apron": 189000000,
+    "roster_min": 14,
+    "roster_max": 15,
+    "minimum_salary": 1200000,
+    "mid_level_exception": 12800000
+  }
+}

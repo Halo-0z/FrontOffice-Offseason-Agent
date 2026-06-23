@@ -86,10 +86,16 @@ backend/
 frontend/
   app/offseason/   # page.tsx
   components/      # CapSheetPanel, TransactionPlanCard, DepthChartPreview, EvidencePanel, ApprovalControls
-data/              # teams, players, contracts, free_agents, evidence_notes (demo/sample/simulation JSON)
+data/              # cap_config, teams, players, contracts, free_agents, evidence_notes (demo/sample/simulation JSON)
 docs/              # architecture, agent-workflow, evaluation
 ```
 
 ## Status
 
-M0 skeleton. No business logic, no LLM API wiring, no live data scraping. Safe to extend into M1.
+M1 implemented: deterministic `cap_sheet_service` loads `SalaryCapConfig`
+from `data/cap_config.json`, builds immutable `TeamCapSheet` objects from
+`data/teams.json` + `data/contracts.json`, computes `CapSheetSummary`
+(`total_salary`, `cap_space`, `tax_distance`, `first_apron_distance`,
+`second_apron_distance`), and exposes a pure `apply_signing_preview`
+that returns a new sheet without mutating the input. No LLM, no state
+writes, no transaction legality logic (that is M2).

@@ -39,6 +39,7 @@ This document describes the layered architecture of `FrontOffice-Offseason-Agent
                        |
 +----------------------v------------------------+
 |  Data layer                                   |
+|  - data/cap_config.json                       |
 |  - data/teams.json                            |
 |  - data/players.json                          |
 |  - data/contracts.json                        |
@@ -49,7 +50,7 @@ This document describes the layered architecture of `FrontOffice-Offseason-Agent
 
 ## Service Responsibilities
 
-- `cap_sheet_service` — Computes and exposes the team cap sheet (cap space, aprons, guarantees, exceptions). The single source of truth for salary state.
+- `cap_sheet_service` — Computes and exposes the team cap sheet (cap space, aprons, guarantees, exceptions). The single source of truth for salary state. M1 implements: `load_cap_config`, `load_contracts`, `load_team_cap_sheet`, `summarize_cap_sheet`, and a pure `apply_signing_preview` that returns a new `TeamCapSheet` without mutating the input. All cap figures come from `data/cap_config.json`; nothing is hardcoded in Python.
 - `transaction_rule_engine` — Deterministic validation of signings and trades (cap legality, salary matching, roster limits, CBA-style rules). Returns `TransactionValidationResult`.
 - `roster_need_service` — Analyzes roster composition and identifies positional/role shortfalls.
 - `free_agent_service` — Reads the free-agent pool and returns candidate targets filtered by team need and cap feasibility.
