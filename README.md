@@ -157,5 +157,28 @@ is non-empty, else facet search). When evidence is missing, returns
 empty `matched_notes` + clear `fallback_reason` — it NEVER fabricates
 notes. Every note/bundle is `sample_data=True`. No LLM, no network, no
 disk writes, no calls to `transaction_rule_engine`, no proposal
-generation. This is the **evidence foundation** for the future M4-B
-offseason agent; the agent itself is NOT implemented yet.
+generation. This is the **evidence foundation** for the M4-B offseason
+agent.
+
+M4-B implemented: deterministic local `offseason_agent` tool
+orchestrator. `run_offseason_plan(goal)` runs a fixed sequence of
+internal tool calls — `cap_sheet_service.summarize_cap_sheet` →
+`roster_need_service.evaluate_roster_needs` →
+`depth_chart_projector.project_current_depth_chart` →
+`free_agent_service.rank_free_agents_for_team` (filtered by
+`target_positions` / `max_salary` / `max_candidates`) →
+`trade_simulator.preview_signing` (per top fit) →
+`evidence_service.search_evidence` + `get_evidence_by_ids` — and
+returns a structured `OffseasonAgentRun` with a full `tool_call_trace`
+(one `ToolCallRecord` per call, recording `tool_name`, `status`
+`SUCCESS`/`FALLBACK`/`FAILED`, `input_summary`, `output_summary`,
+`fallback_reason`, `evidence_ids`). Every signing preview has
+`requires_human_approval=True`; the run itself has
+`requires_human_approval=True` and `sample_data=True`. On tool failure
+the orchestrator records a `FAILED`/`FALLBACK` trace entry and
+continues (unless `team_id` is unknown, which fails the run). This is
+**not** an MCP server, **not** an MCP client, **not** an LLM agent,
+and **not** an OpenAI function-calling harness — it is a purely
+deterministic local tool registry/orchestrator. No LLM, no network,
+no disk writes, no real NBA data. The final natural-language
+proposal/brief output is deferred to M4-C.

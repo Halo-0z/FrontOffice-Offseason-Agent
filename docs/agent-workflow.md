@@ -1,46 +1,100 @@
 # Agent Workflow
 
-This document describes the standard offseason workflow the agent will follow in later milestones.
+This document describes the standard offseason workflow the agent follows.
 
-## Current Status (M4-A)
+## Current Status (M4-B)
 
-M4-A only implements the **evidence retrieval foundation**
-(`evidence_service`). The full offseason agent orchestration
-(`offseason_agent`) is **NOT implemented yet** — it is deferred to
-M4-B. The flow below describes the target M4 design; only the
-`evidence_service` step is currently backed by code.
+M4-B implements the **deterministic local tool orchestrator**
+(`offseason_agent.run_offseason_plan`). The orchestrator runs a fixed
+sequence of internal tool calls and returns a structured
+`OffseasonAgentRun` with a full `tool_call_trace`. This is **not** an
+MCP server, **not** an MCP client, **not** an LLM agent, and **not**
+an OpenAI function-calling harness — it is a purely deterministic
+local tool registry/orchestrator. No LLM, no network, no disk writes.
 
-## Standard Flow (target M4-B+)
+The final natural-language proposal/brief output is deferred to M4-C.
 
-1. **Receive team + offseason goal.** Input: `team_id`, `goal` (e.g. "retool around a star", "shed salary", "chase a max free agent").
-2. **Load cap sheet.** `cap_sheet_service.load(team_id)` -> current cap space, aprons, guaranteed salaries, exceptions.
-3. **Load roster.** `roster_need_service.load_roster(team_id)` -> current players, positions, roles.
-4. **Analyze roster needs.** `roster_need_service.analyze(...)` -> positional/role shortfalls.
-5. **Retrieve free-agent / trade candidates.** `free_agent_service.candidates(...)` and `trade_simulator.candidates(...)` filtered by needs and cap.
-6. **Simulate signing/trade actions.** Build candidate `TransactionProposal` objects.
-7. **Validate each transaction.** `transaction_rule_engine.validate(proposal)` -> `TransactionValidationResult`. Reject invalid ones or route to fallback.
-8. **Project depth chart.** `depth_chart_projector.project(team_id, applied_transactions)` -> projected depth chart.
-9. **Retrieve supporting evidence.** `evidence_service.search_evidence(...)` / `evidence_service.get_evidence_by_ids(...)` -> `EvidenceBundle` linking supporting `evidence_id`s to each plan. **(Implemented in M4-A.)**
-10. **Generate structured proposal.** `offseason_agent.assemble_brief(...)` -> structured JSON brief. **(Deferred to M4-B.)**
-11. **Wait for human approval.** No state mutation until a human approves via `ApprovalControls`.
+## M4-B Flow (implemented)
 
-## M4-A Scope
+```
+goal (OffseasonGoal)
+  -> cap_sheet_service.summarize_cap_sheet(team_id)
+  -> roster_need_service.evaluate_roster_needs(team_id)
+  -> depth_chart_projector.project_current_depth_chart(team_id)
+  -> free_agent_service.rank_free_agents_for_team(team_id)
+       filtered by goal.target_positions / goal.max_salary / goal.max_candidates
+  -> [for each top fit] trade_simulator.preview_signing(SigningTransaction)
+       transaction_type picked conservatively:
+         salary <= minimum_salary -> MINIMUM_SIGNING
+         salary <= MLE            -> MLE_SIGNING
+         otherwise                -> SIMPLE_FA_SIGNING
+       every preview has requires_human_approval=True
+  -> evidence_service.search_evidence(query, team_id)
+     + evidence_service.get_evidence_by_ids(fit evidence_ids)
+       merged into one EvidenceBundle (dedup by evidence_id)
+  -> OffseasonAgentRun
+       status: SUCCESS / PARTIAL / FAILED (derived from tool_call_trace)
+       requires_human_approval: True (always)
+       sample_data: True (always)
+       limitations: MVP scope notes
+       tool_call_trace: one ToolCallRecord per call
+```
 
-Only step 9 (`evidence_service`) is implemented. The
-`evidence_service` is a deterministic, LLM-free, network-free local
-citation layer: it loads DEMO/SAMPLE/SIMULATION notes from
-`data/evidence_notes.json` and returns structured `EvidenceBundle`
-objects. It is **not** a live RAG system and **not** an external news
-scraper. When evidence is missing, it returns an empty
-`matched_notes` tuple + a clear `fallback_reason` — it never
-fabricates citations.
+Each tool call is wrapped in a try/except. On failure the orchestrator
+records a `FAILED` `ToolCallRecord` and continues (unless `team_id` is
+unknown, which is a critical failure). When a tool returns an empty
+result (e.g. no free-agent candidates after filtering), the trace
+records `FALLBACK` with a clear `fallback_reason`.
+
+### Tool Call Trace
+
+Every `ToolCallRecord` contains:
+
+| Field | Description |
+|---|---|
+| `tool_name` | Dotted name, e.g. `cap_sheet_service.summarize_cap_sheet`. |
+| `status` | `SUCCESS` / `FALLBACK` / `FAILED`. |
+| `input_summary` | Short deterministic string describing the input. |
+| `output_summary` | Short deterministic string describing the output. |
+| `fallback_reason` | `None` on SUCCESS; a clear string on FALLBACK/FAILED. |
+| `evidence_ids` | Evidence ids produced or referenced by this call. |
+
+### Run Status Derivation
+
+- Any `FAILED` trace entry → `AgentRunStatus.FAILED`.
+- Any `FALLBACK` trace entry (no FAILED) → `AgentRunStatus.PARTIAL`.
+- Otherwise → `AgentRunStatus.SUCCESS`.
+
+`SUCCESS` only means the orchestrator ran to completion — it does NOT
+mean any transaction was approved. Every output is still a preview
+that requires human approval.
+
+## Standard Flow (target M4-C+)
+
+The M4-B flow above is the deterministic core. M4-C will add the
+final structured proposal/brief output (natural-language explanation,
+plan cards, etc.) on top of the `OffseasonAgentRun`. The full target
+flow:
+
+1. **Receive team + offseason goal.** Input: `team_id`, `goal`.
+2. **Load cap sheet.** `cap_sheet_service` → current cap space, aprons, exceptions.
+3. **Analyze roster needs.** `roster_need_service` → positional/role shortfalls.
+4. **Project current depth chart.** `depth_chart_projector` → current depth.
+5. **Retrieve free-agent candidates.** `free_agent_service` filtered by needs, cap, and goal constraints.
+6. **Preview signing actions.** `trade_simulator.preview_signing` per top fit (always validates via `transaction_rule_engine`).
+7. **Retrieve supporting evidence.** `evidence_service.search_evidence` + `get_evidence_by_ids` → `EvidenceBundle`.
+8. **Assemble structured run.** `OffseasonAgentRun` with `tool_call_trace`. **(Implemented in M4-B.)**
+9. **Generate structured proposal/brief.** Natural-language plan cards, rationale, risk notes. **(Deferred to M4-C.)**
+10. **Wait for human approval.** No state mutation until a human approves.
 
 ## Guardrails
 
 - The agent **must not** write to cap/roster/contract state directly.
 - The agent **must not** declare a transaction valid; only `transaction_rule_engine` can.
+- The agent **must not** bypass `trade_simulator` (which calls `transaction_rule_engine` internally).
 - The agent **must not** skip the human approval gate.
-- If a required tool call fails or data is missing, the agent emits a **fallback** entry, not a silent success.
+- The agent **must not** use MCP or call an LLM.
+- If a required tool call fails or data is missing, the agent emits a **fallback** trace entry, not a silent success.
 - The structured output **must** include all required fields; otherwise it is rejected upstream.
 
 ## Fallback Handling

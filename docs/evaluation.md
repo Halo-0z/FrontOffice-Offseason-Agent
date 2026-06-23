@@ -113,6 +113,49 @@ M4-A evidence retrieval deterministic tests (implemented in
   `evidence_service` does not call `transaction_rule_engine`
   (monkeypatch engine to raise — retrieval still works).
 
+M4-B offseason agent tool orchestrator deterministic tests (implemented
+in `test_offseason_agent.py` and the M4-B block of
+`test_agent_guardrails.py`):
+
+- `run_offseason_plan` returns a structured `OffseasonAgentRun` with
+  `requires_human_approval=True` and `sample_data=True`.
+- `tool_call_trace` includes all six key tools: `cap_sheet_service`,
+  `roster_need_service`, `depth_chart_projector`,
+  `free_agent_service`, `trade_simulator.preview_signing`, and
+  `evidence_service`.
+- DEM-ATL plan identifies roster needs and produces `free_agent_fits`
+  (non-empty when filters allow).
+- Every signing preview has `requires_human_approval=True` — no
+  preview is treated as approved.
+- No mutation of `data/players.json`, `data/contracts.json`,
+  `data/free_agents.json`, or `data/evidence_notes.json` across a run.
+- The orchestrator does not call any LLM / OpenAI API (no `openai` /
+  `llm` / `anthropic` / `chat_completion` attributes on the module).
+- The orchestrator does not use MCP (no `mcp` / `mcp_client` /
+  `mcp_server` / `MCPClient` attributes on the module).
+- No signing preview is generated as an approved transaction (even
+  when `is_valid=True`, `requires_human_approval` is still `True`).
+- `evidence_bundle` is returned from `evidence_service`; missing
+  evidence and `fallback_reason` are preserved.
+- Unknown `team_id` raises `TeamNotFoundError` (critical failure).
+- `max_candidates` / `max_salary` / `target_positions` filters are
+  applied correctly.
+- Tool failure (monkeypatch `rank_free_agents_for_team` to raise)
+  produces a `FAILED` `ToolCallRecord` and `AgentRunStatus.FAILED`.
+- No free-agent candidates after filtering produces `FALLBACK` trace
+  and `AgentRunStatus.PARTIAL`.
+- Determinism: same inputs produce identical `OffseasonAgentRun` and
+  identical `tool_call_trace` across repeated calls.
+- Immutability: `OffseasonAgentRun` / `ToolCallRecord` / `OffseasonGoal`
+  are frozen.
+- `limitations` documents MVP scope (M4-B, no LLM, no MCP, no external
+  NBA API, previews require human approval).
+- Guardrails: agent run `requires_human_approval=True`; signing
+  previews not approved; agent does not bypass `trade_simulator`
+  (monkeypatch `preview_signing` to raise — trace records `FAILED`);
+  tool trace records all key tools; agent does not use MCP/LLM; agent
+  does not write data files.
+
 ## Evaluation Harness (future, M6)
 
 - Run the agent over a fixed set of `(team, goal)` seeds.

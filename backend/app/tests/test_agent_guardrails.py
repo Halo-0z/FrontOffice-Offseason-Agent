@@ -270,12 +270,126 @@ def test_evidence_service_does_not_call_transaction_rule_engine(
 
 
 # --------------------------------------------------------------------------- #
-# M4 TODOs (not implemented in M2/M3-B/M4-A)
+# M4-B guardrails: the offseason_agent orchestrator must require human
+# approval, must not bypass trade_simulator, must record a complete
+# tool_call_trace, must not use MCP/LLM, and must not write data files.
 # --------------------------------------------------------------------------- #
 
-# TODO(M4-B): test_agent_blocked_from_writing_roster.
-# TODO(M4-B): test_agent_blocked_from_writing_cap_sheet.
-# TODO(M4-B): test_agent_blocked_from_writing_contracts.
-# TODO(M4-B): test_brief_rejected_when_required_field_missing.
-# TODO(M4-B): test_brief_rejected_when_evidence_ids_missing.
-# TODO(M4-B): test_guardrail_violation_count_is_zero_on_clean_run.
+
+def _m4b_goal():
+    from backend.app.models.agent import OffseasonGoal
+
+    return OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+
+
+def test_agent_run_requires_human_approval_is_true() -> None:
+    """The ``OffseasonAgentRun`` must always have
+    ``requires_human_approval=True`` — the orchestrator never approves
+    anything."""
+    from backend.app.services.offseason_agent import run_offseason_plan
+
+    run = run_offseason_plan(_m4b_goal(), DATA_DIR)
+    assert run.requires_human_approval is True
+
+
+def test_agent_signing_previews_are_not_approved() -> None:
+    """Every signing preview must have ``requires_human_approval=True``.
+    Even when ``validation_result.is_valid`` is True, the preview is
+    NOT an approval — it still requires human sign-off."""
+    from backend.app.services.offseason_agent import run_offseason_plan
+
+    run = run_offseason_plan(_m4b_goal(), DATA_DIR)
+    for preview in run.signing_previews:
+        assert preview.requires_human_approval is True
+        # Even a valid preview is not "approved".
+        vr = preview.validation_result
+        if vr is not None and vr.is_valid:
+            assert preview.requires_human_approval is True
+
+
+def test_agent_does_not_bypass_trade_simulator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The agent must route every signing preview through
+    ``trade_simulator.preview_signing`` (which internally calls
+    ``transaction_rule_engine.validate_transaction``). If we patch
+    ``preview_signing`` to raise, the agent must record a FAILED trace
+    entry — it must NOT silently produce an approved preview."""
+    from backend.app.services import offseason_agent as agent_mod
+    from backend.app.services.offseason_agent import run_offseason_plan
+
+    def _boom(*args, **kwargs):
+        raise AssertionError(
+            "agent must call preview_signing; this patch should not be bypassed"
+        )
+
+    monkeypatch.setattr(agent_mod, "preview_signing", _boom)
+    run = run_offseason_plan(_m4b_goal(), DATA_DIR)
+    # The preview tool must appear in the trace with FAILED status.
+    preview_traces = [
+        c for c in run.tool_call_trace if "preview_signing" in c.tool_name
+    ]
+    assert len(preview_traces) > 0
+    for c in preview_traces:
+        assert c.status.value == "FAILED"
+
+
+def test_agent_tool_trace_records_all_key_tools() -> None:
+    """The ``tool_call_trace`` must include entries for all six key
+    tools: cap_sheet, roster_need, depth_chart, free_agent,
+    preview_signing, and evidence_service."""
+    from backend.app.services.offseason_agent import run_offseason_plan
+
+    run = run_offseason_plan(_m4b_goal(), DATA_DIR)
+    tool_names = {c.tool_name for c in run.tool_call_trace}
+    assert "cap_sheet_service.summarize_cap_sheet" in tool_names
+    assert "roster_need_service.evaluate_roster_needs" in tool_names
+    assert "depth_chart_projector.project_current_depth_chart" in tool_names
+    assert "free_agent_service.rank_free_agents_for_team" in tool_names
+    assert "trade_simulator.preview_signing" in tool_names
+    assert "evidence_service.search_evidence" in tool_names
+
+
+def test_agent_does_not_use_mcp_or_llm() -> None:
+    """The offseason_agent module must not import or expose any MCP or
+    LLM client attributes."""
+    from backend.app.services import offseason_agent as agent_mod
+
+    for forbidden in (
+        "mcp",
+        "mcp_client",
+        "mcp_server",
+        "MCPClient",
+        "openai",
+        "llm",
+        "anthropic",
+        "chat_completion",
+    ):
+        assert not hasattr(agent_mod, forbidden), (
+            f"offseason_agent must not expose {forbidden!r}"
+        )
+
+
+def test_agent_does_not_write_data_files() -> None:
+    """Running the agent must not mutate any of the four core data
+    files."""
+    from backend.app.services.offseason_agent import run_offseason_plan
+
+    files = [
+        DATA_DIR / "players.json",
+        DATA_DIR / "contracts.json",
+        DATA_DIR / "free_agents.json",
+        DATA_DIR / "evidence_notes.json",
+    ]
+    before = {f: f.read_bytes() for f in files}
+    run_offseason_plan(_m4b_goal(), DATA_DIR)
+    after = {f: f.read_bytes() for f in files}
+    for f in files:
+        assert before[f] == after[f], f"agent must not mutate {f.name}"
