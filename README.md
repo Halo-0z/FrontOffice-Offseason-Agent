@@ -73,7 +73,7 @@ The LLM/agent layer is an **advisor**, never a **mutator**.
 | M5 | Frontend Simulator (cap sheet panel, plan card, depth chart, evidence, approval controls). |
 | M6 | Evaluation (metrics + pytest harness). |
 
-> Status note: M0–M4-D are implemented as a deterministic local backend.
+> Status note: M0–M5-A are implemented as a deterministic local backend.
 > The project has **not** called any LLM, has **not** connected to MCP,
 > and has **not** connected to the real NBA API or any live salary data
 > source. All players / contracts / free agents / evidence notes are
@@ -248,3 +248,40 @@ convenience wrapper `run_goal_and_build_proposal` is used inside the
 scenario runner because the scenario suite evaluates the full
 end-to-end system; `evaluate_structured_proposal` itself only
 consumes a `StructuredProposal`.
+
+M5-A implemented: deterministic `proposal_viewer` display layer and a
+`run_offseason_demo.py` CLI demo script. `format_proposal_brief(proposal,
+evaluation)` formats a `StructuredProposal` + `ProposalEvaluation` into
+a human-readable text brief (header / recommended actions / risks /
+evidence / tool trace / evaluation summary / fallback reasons /
+limitations). `build_demo_payload(goal)` returns a stable
+JSON-serializable dict (`proposal` / `evaluation` / `actions` /
+`evidence` / `tool_trace` / `limitations` / `requires_human_approval` /
+`sample_data`). `build_demo_brief(goal)` runs the full pipeline
+(`run_goal_and_build_proposal` → `evaluate_structured_proposal`) and
+returns the text brief. The CLI script
+`backend/scripts/run_offseason_demo.py` accepts `--team-id`,
+`--objective`, `--target-position`, `--max-salary`, `--max-candidates`,
+`--evidence-query`, and `--format text|json`; it prints to stdout and
+writes no files. The viewer does NOT call any LLM, does NOT use MCP,
+does NOT call `transaction_rule_engine` or `trade_simulator`, does NOT
+write to disk, and does NOT approve transactions. All output is
+deterministic and clearly marked as sample/demo data.
+
+## Quick Demo
+
+Run the default DEMO scenario from the repo root (sample data only —
+not a real NBA prediction):
+
+```
+python backend/scripts/run_offseason_demo.py
+python backend/scripts/run_offseason_demo.py --target-position C --max-salary 20000000
+python backend/scripts/run_offseason_demo.py --format json
+python backend/scripts/run_offseason_demo.py --target-position C --max-salary 15000000 --max-candidates 2
+```
+
+The text output includes the proposal status, evaluation status,
+recommended actions (preview only), risks, evidence refs, tool call
+trace, fallback reasons, and MVP limitations. The JSON output is a
+stable, sorted-keys payload suitable for downstream tooling. Every
+output is marked `requires_human_approval=True` and `sample_data=True`.

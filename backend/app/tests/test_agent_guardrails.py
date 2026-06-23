@@ -687,3 +687,131 @@ def test_evaluator_fails_proposal_missing_human_approval() -> None:
     assert evaluation.status is EvaluationStatus.FAIL
     codes = [i.code for i in evaluation.issues]
     assert EvaluationIssueCode.missing_human_approval in codes
+
+
+# --------------------------------------------------------------------------- #
+# M5-A guardrails: the proposal_viewer / CLI demo must not approve
+# transactions, must not call LLM/MCP, must not write data files, and
+# the CLI demo output must mention human approval / sample data
+# limitations.
+# --------------------------------------------------------------------------- #
+
+
+def _m5a_goal():
+    from backend.app.models.agent import OffseasonGoal
+
+    return OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+
+
+def test_viewer_does_not_approve_transactions() -> None:
+    """The proposal_viewer must never mark a proposal or action as
+    approved. It only formats existing data; it never changes the
+    proposal's ``requires_human_approval`` invariant."""
+    from backend.app.services.proposal_builder import run_goal_and_build_proposal
+    from backend.app.services.proposal_evaluator import evaluate_structured_proposal
+    from backend.app.services.proposal_viewer import format_proposal_brief
+
+    proposal = run_goal_and_build_proposal(_m5a_goal(), DATA_DIR)
+    evaluation = evaluate_structured_proposal(proposal)
+    brief = format_proposal_brief(proposal, evaluation)
+    # The brief must not contain approval language.
+    assert "approved" not in brief.lower()
+    assert "approval granted" not in brief.lower()
+    # The proposal itself must still require human approval.
+    assert proposal.requires_human_approval is True
+    for action in proposal.recommended_actions:
+        assert action.requires_human_approval is True
+
+
+def test_viewer_does_not_use_mcp_or_llm() -> None:
+    """The proposal_viewer module must not import or expose any MCP or
+    LLM client attributes."""
+    from backend.app.services import proposal_viewer as viewer_mod
+
+    for forbidden in (
+        "mcp",
+        "mcp_client",
+        "mcp_server",
+        "MCPClient",
+        "openai",
+        "llm",
+        "anthropic",
+        "chat_completion",
+    ):
+        assert not hasattr(viewer_mod, forbidden), (
+            f"proposal_viewer must not expose {forbidden!r}"
+        )
+
+
+def test_viewer_does_not_write_data_files() -> None:
+    """Running the viewer must not mutate any of the four core data
+    files."""
+    from backend.app.services.proposal_viewer import build_demo_brief
+
+    files = [
+        DATA_DIR / "players.json",
+        DATA_DIR / "contracts.json",
+        DATA_DIR / "free_agents.json",
+        DATA_DIR / "evidence_notes.json",
+    ]
+    before = {f: f.read_bytes() for f in files}
+    build_demo_brief(_m5a_goal(), DATA_DIR)
+    after = {f: f.read_bytes() for f in files}
+    for f in files:
+        assert before[f] == after[f], f"proposal_viewer must not mutate {f.name}"
+
+
+def test_cli_demo_does_not_write_data_files() -> None:
+    """Running the CLI demo script must not mutate any of the four
+    core data files."""
+    import subprocess
+    import sys
+
+    script = REPO_ROOT / "backend" / "scripts" / "run_offseason_demo.py"
+    files = [
+        DATA_DIR / "players.json",
+        DATA_DIR / "contracts.json",
+        DATA_DIR / "free_agents.json",
+        DATA_DIR / "evidence_notes.json",
+    ]
+    before = {f: f.read_bytes() for f in files}
+    subprocess.run(
+        [sys.executable, str(script)],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    after = {f: f.read_bytes() for f in files}
+    for f in files:
+        assert before[f] == after[f], f"CLI demo must not mutate {f.name}"
+
+
+def test_cli_demo_output_mentions_human_approval_and_sample_data() -> None:
+    """The CLI demo text output must mention ``requires_human_approval``
+    and ``sample_data`` so it is never mistaken for a real NBA
+    prediction."""
+    import subprocess
+    import sys
+
+    script = REPO_ROOT / "backend" / "scripts" / "run_offseason_demo.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "--format", "text"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "requires_human_approval" in result.stdout
+    assert "sample_data" in result.stdout
+    assert "True" in result.stdout
+    # The output must also mention the MVP limitations.
+    assert "No LLM call" in result.stdout
+    assert "No MCP" in result.stdout

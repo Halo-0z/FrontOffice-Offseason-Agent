@@ -334,6 +334,75 @@ The evaluator checks fallback consistency:
 - The evaluator does NOT depend on wall-clock time, random numbers,
   network, or any external state.
 
+M5-A proposal viewer / CLI demo deterministic tests (implemented in
+`test_proposal_viewer.py`, `test_run_offseason_demo.py`, and the M5-A
+block of `test_agent_guardrails.py`):
+
+- `format_proposal_brief` returns a `str`.
+- The brief contains `team_id` / `objective` / proposal status /
+  evaluation status.
+- The brief contains recommended action `player_name` / `position` /
+  `validation_status`.
+- The brief contains `evidence_id` / evidence title.
+- The brief contains `tool_call_trace` entries.
+- The brief contains `requires_human_approval=True`.
+- The brief contains `sample_data=True`.
+- The NO_ACTION path shows `HOLD` action / fallback reasons /
+  `no_matching_candidate` risk.
+- `build_demo_payload` returns a stable dict with `proposal` /
+  `evaluation` / `actions` / `evidence` / `tool_trace` / `limitations`
+  / `requires_human_approval` / `sample_data` keys.
+- `build_demo_brief` runs the default DEM-ATL C scenario.
+- Output is deterministic: same input → same output (verified for
+  `format_proposal_brief`, `build_demo_brief`, `build_demo_payload`,
+  and the CLI script `--format text|json`).
+- The viewer does not mutate `data/players.json`,
+  `data/contracts.json`, `data/free_agents.json`, or
+  `data/evidence_notes.json`.
+- The viewer does not call any LLM / OpenAI API (no `openai` / `llm`
+  / `anthropic` / `chat_completion` attributes on the module).
+- The viewer does not use MCP (no `mcp` / `mcp_client` / `mcp_server`
+  / `MCPClient` attributes on the module).
+- The viewer does not approve transactions (no `approved` language in
+  the brief; proposal `requires_human_approval` unchanged).
+- The viewer does not change the proposal's `ProposalStatus` or the
+  evaluation's `EvaluationStatus`.
+- CLI script default run succeeds with exit code 0.
+- CLI `--format text` output contains a recognizable proposal header
+  (`FrontOffice-Offseason-Agent` / `proposal status` / `DEM-ATL`).
+- CLI `--format json` output is valid JSON with `proposal` /
+  `evaluation` / `actions` / `evidence` / `tool_trace` keys.
+- CLI `--target-position C` works and produces a `RECOMMENDED`
+  proposal with at least one `SIGNING` action.
+- CLI strict-budget scenario (`--max-salary 15000000`) outputs
+  `NO_ACTION` or `PARTIAL` with a `HOLD` action or
+  `no_matching_candidate` risk.
+- CLI unknown team (`--team-id UNKNOWN-TEAM-XYZ`) returns non-zero
+  exit code with a clear error mentioning the known team ids.
+- CLI text output mentions `requires_human_approval` and
+  `sample_data` and the MVP limitations (`No LLM call` / `No MCP`).
+- CLI does not mutate any data file.
+- CLI does not import LLM / MCP clients (source inspection).
+- CLI does not make network calls (source inspection).
+- Guardrails: viewer does not approve transactions; viewer does not
+  use MCP/LLM; viewer does not write data files; CLI demo does not
+  write data files; CLI demo output mentions human approval / sample
+  data limitations.
+
+### M5-A CLI Demo Output Checks
+
+The CLI script `backend/scripts/run_offseason_demo.py` supports two
+output formats:
+
+| Format | Behavior |
+|---|---|
+| `text` (default) | Calls `format_proposal_brief` and prints the human-readable brief to stdout. |
+| `json` | Calls `build_demo_payload` and prints `json.dumps(payload, sort_keys=True, indent=2)` to stdout. |
+
+Both formats are deterministic: two consecutive runs produce identical
+stdout. The script writes no files and returns exit code 0 on success,
+non-zero on argument/runtime errors (e.g. unknown `team_id`).
+
 ## Evaluation Harness (future, M6)
 
 - Run the agent over a fixed set of `(team, goal)` seeds.

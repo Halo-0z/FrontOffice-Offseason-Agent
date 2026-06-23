@@ -2,27 +2,26 @@
 
 This document describes the standard offseason workflow the agent follows.
 
-## Current Status (M4-D)
+## Current Status (M5-A)
 
-M4-D implements the **deterministic proposal evaluation / fallback
-layer** (`proposal_evaluator.evaluate_structured_proposal`). The
-evaluator consumes a M4-C `StructuredProposal` and returns a
-`ProposalEvaluation` with `status` (`PASS` / `WARNING` / `FAIL`),
-`issues`, `passed_checks`, `failed_checks`, `warnings`,
-`limitations`, and `sample_data=True`. It does NOT generate new
-proposals, does NOT approve transactions, does NOT change the
-proposal's status to "approved", does NOT call
+M5-A implements the **deterministic proposal viewer / CLI demo**
+(`proposal_viewer.format_proposal_brief` +
+`backend/scripts/run_offseason_demo.py`). The viewer consumes a M4-C
+`StructuredProposal` and a M4-D `ProposalEvaluation` and formats them
+into a human-readable text brief or a stable JSON-serializable dict.
+It does NOT generate new proposals, does NOT approve transactions,
+does NOT change the proposal's status to "approved", does NOT call
 `transaction_rule_engine` or `trade_simulator`, does NOT call any
-LLM, does NOT use MCP, and does NOT write to disk.
-`run_evaluation_scenario` and `run_default_evaluation_scenarios` run
-a fixed set of 4 demo scenarios end-to-end as a regression suite
-(they internally call `run_goal_and_build_proposal` because the
-scenario suite evaluates the full system; `evaluate_structured_proposal`
-itself only consumes a `StructuredProposal`).
+LLM, does NOT use MCP, and does NOT write to disk. The CLI script
+`run_offseason_demo.py` accepts `--team-id` / `--objective` /
+`--target-position` / `--max-salary` / `--max-candidates` /
+`--evidence-query` / `--format text|json` and prints to stdout; it
+writes no files.
 
-This is **not** an MCP server, **not** an MCP client, **not** an LLM
-agent, and **not** an OpenAI function-calling harness — it is a purely
-deterministic evaluator. No LLM, no network, no disk writes.
+This is **not** a frontend page, **not** an MCP server, **not** an
+LLM agent, and **not** an OpenAI function-calling harness — it is a
+purely deterministic display layer. No LLM, no network, no disk
+writes.
 
 Natural-language polish / LLM output is deferred to a later milestone.
 
@@ -97,6 +96,16 @@ goal (OffseasonGoal)
             sample_data: True (always)
        -> NOTE: evaluator does NOT approve transactions and does NOT
             change the proposal's ProposalStatus. It only emits issues.
+  -> [M5-A] format_proposal_brief(proposal, evaluation)  /  CLI demo
+       -> format header (team_id / objective / statuses /
+            requires_human_approval / sample_data)
+       -> format recommended actions (preview only)
+       -> format risks / evidence refs / tool_call_trace
+       -> format evaluation summary (status / issues / passed_checks)
+       -> format fallback reasons / limitations
+       -> NOTE: viewer does NOT approve transactions, does NOT call
+            LLM/MCP, does NOT write to disk, does NOT re-build or
+            re-evaluate the proposal. It only formats existing data.
   -> frontend / brief output
        (natural-language polish / LLM output deferred to a later milestone)
 ```
@@ -119,6 +128,15 @@ consumes the `StructuredProposal`. The scenario runner
 (`run_evaluation_scenario` / `run_default_evaluation_scenarios`) is
 the only path that calls `run_goal_and_build_proposal`, because the
 scenario suite is a regression test of the full end-to-end system.
+
+The M5-A viewer is **pure**: it does NOT re-run any tool, does NOT
+call `transaction_rule_engine` or `trade_simulator`, does NOT call
+any LLM, does NOT use MCP, and does NOT write to disk. It only
+formats existing `StructuredProposal` + `ProposalEvaluation` data.
+The `build_demo_brief` / `build_demo_payload` convenience wrappers
+call `run_goal_and_build_proposal` + `evaluate_structured_proposal`
+to produce the proposal/evaluation, but `format_proposal_brief`
+itself only consumes the already-built objects.
 
 ## M4-B Flow (implemented)
 
@@ -183,8 +201,9 @@ add natural-language polish / LLM output on top of the
 8. **Assemble structured run.** `OffseasonAgentRun` with `tool_call_trace`. **(Implemented in M4-B.)**
 9. **Build structured proposal.** `StructuredProposal` with actions, risks, evidence refs. **(Implemented in M4-C.)**
 10. **Evaluate proposal.** `proposal_evaluator.evaluate_structured_proposal` → `ProposalEvaluation` with `status` / `issues` / `passed_checks` / `failed_checks` / `warnings` / `limitations`. The evaluator does NOT approve transactions; it only emits issues and a PASS/WARNING/FAIL status. **(Implemented in M4-D.)**
-11. **Natural-language polish / LLM output.** Plan cards, rationale, risk notes. **(Deferred to a later milestone.)**
-12. **Wait for human approval.** No state mutation until a human approves.
+11. **Format proposal brief / CLI demo.** `proposal_viewer.format_proposal_brief` → human-readable text brief; `run_offseason_demo.py` CLI exposes the full pipeline with `--format text|json`. The viewer only formats existing data; it does NOT approve transactions. **(Implemented in M5-A.)**
+12. **Natural-language polish / LLM output.** Plan cards, rationale, risk notes. **(Deferred to a later milestone.)**
+13. **Wait for human approval.** No state mutation until a human approves.
 
 ## Guardrails
 
@@ -199,6 +218,11 @@ add natural-language polish / LLM output on top of the
 - The evaluator **must not** call `transaction_rule_engine` or `trade_simulator`; it only consumes the `StructuredProposal`.
 - The evaluator **must not** call any LLM, **must not** use MCP, and **must not** write to disk.
 - The evaluator **must** FAIL any proposal missing `requires_human_approval=True` on the proposal or any action.
+- The viewer **must not** approve transactions or change the proposal's `ProposalStatus` — it only formats existing data.
+- The viewer **must not** call `transaction_rule_engine` or `trade_simulator`; it only consumes the `StructuredProposal` + `ProposalEvaluation`.
+- The viewer **must not** call any LLM, **must not** use MCP, and **must not** write to disk.
+- The CLI demo **must not** write output files; it prints to stdout only.
+- The CLI demo output **must** mention `requires_human_approval` and `sample_data` so it is never mistaken for a real NBA prediction.
 
 ## Fallback Handling
 
