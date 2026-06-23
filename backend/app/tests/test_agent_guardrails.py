@@ -183,12 +183,99 @@ def test_free_agent_service_cannot_bypass_rule_engine(
 
 
 # --------------------------------------------------------------------------- #
-# M4 TODOs (not implemented in M2/M3-B)
+# M4-A guardrails: evidence_service cannot fabricate notes, must mark
+# sample_data=True, must not generate proposals, must not call the
+# rule engine.
 # --------------------------------------------------------------------------- #
 
-# TODO(M4): test_agent_blocked_from_writing_roster.
-# TODO(M4): test_agent_blocked_from_writing_cap_sheet.
-# TODO(M4): test_agent_blocked_from_writing_contracts.
-# TODO(M4): test_brief_rejected_when_required_field_missing.
-# TODO(M4): test_brief_rejected_when_evidence_ids_missing.
-# TODO(M4): test_guardrail_violation_count_is_zero_on_clean_run.
+
+def test_evidence_service_missing_evidence_does_not_fabricate_notes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When evidence ids are missing, evidence_service must return an
+    empty (or partial) bundle with a clear fallback_reason — it must
+    NEVER fabricate matched_notes."""
+    from backend.app.services.evidence_service import get_evidence_by_ids
+
+    bundle = get_evidence_by_ids(("ev-demo-missing-1", "ev-demo-missing-2"), DATA_DIR)
+    assert bundle.matched_notes == ()
+    assert bundle.missing_evidence_ids == (
+        "ev-demo-missing-1",
+        "ev-demo-missing-2",
+    )
+    assert bundle.fallback_reason is not None
+    assert "No evidence found" in bundle.fallback_reason
+
+
+def test_evidence_service_returns_sample_data_true() -> None:
+    """Every returned note and bundle must be marked sample_data=True
+    (these are demo notes, not real news)."""
+    from backend.app.services.evidence_service import search_evidence
+
+    bundle = search_evidence(team_id="DEM-ATL", limit=3, data_dir=DATA_DIR)
+    assert bundle.sample_data is True
+    for note in bundle.matched_notes:
+        assert note.sample_data is True
+
+
+def test_evidence_service_does_not_generate_transaction_proposal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """evidence_service must not produce transaction proposals. We
+    verify by asserting the returned bundle has no proposal-shaped
+    fields (no 'transaction', no 'proposal', no 'is_valid')."""
+    from backend.app.models.evidence import EvidenceBundle
+    from backend.app.services.evidence_service import search_evidence
+
+    bundle = search_evidence(team_id="DEM-ATL", limit=3, data_dir=DATA_DIR)
+    assert isinstance(bundle, EvidenceBundle)
+    # EvidenceBundle must not carry proposal/transaction fields.
+    for forbidden in ("transaction", "proposal", "is_valid", "validation_result"):
+        assert not hasattr(bundle, forbidden), (
+            f"EvidenceBundle must not carry {forbidden!r} field"
+        )
+    for note in bundle.matched_notes:
+        for forbidden in ("transaction", "proposal", "is_valid", "validation_result"):
+            assert not hasattr(note, forbidden), (
+                f"EvidenceNote must not carry {forbidden!r} field"
+            )
+
+
+def test_evidence_service_does_not_call_transaction_rule_engine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """evidence_service must not call transaction_rule_engine. We
+    monkeypatch the engine to raise and verify evidence retrieval still
+    works."""
+    from backend.app.services import transaction_rule_engine as engine
+    from backend.app.services.evidence_service import (
+        get_evidence_by_ids,
+        search_evidence,
+    )
+
+    def _boom(*args, **kwargs):
+        raise AssertionError(
+            "evidence_service must not call transaction_rule_engine"
+        )
+
+    monkeypatch.setattr(engine, "validate_transaction", _boom)
+    monkeypatch.setattr(engine, "validate_signing", _boom)
+    monkeypatch.setattr(engine, "validate_trade", _boom)
+
+    # Both retrieval paths must still work.
+    b1 = get_evidence_by_ids(("ev-001",), DATA_DIR)
+    assert len(b1.matched_notes) == 1
+    b2 = search_evidence(team_id="DEM-ATL", limit=3, data_dir=DATA_DIR)
+    assert len(b2.matched_notes) > 0
+
+
+# --------------------------------------------------------------------------- #
+# M4 TODOs (not implemented in M2/M3-B/M4-A)
+# --------------------------------------------------------------------------- #
+
+# TODO(M4-B): test_agent_blocked_from_writing_roster.
+# TODO(M4-B): test_agent_blocked_from_writing_cap_sheet.
+# TODO(M4-B): test_agent_blocked_from_writing_contracts.
+# TODO(M4-B): test_brief_rejected_when_required_field_missing.
+# TODO(M4-B): test_brief_rejected_when_evidence_ids_missing.
+# TODO(M4-B): test_guardrail_violation_count_is_zero_on_clean_run.

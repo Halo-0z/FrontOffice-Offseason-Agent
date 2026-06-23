@@ -2,7 +2,15 @@
 
 This document describes the standard offseason workflow the agent will follow in later milestones.
 
-## Standard Flow
+## Current Status (M4-A)
+
+M4-A only implements the **evidence retrieval foundation**
+(`evidence_service`). The full offseason agent orchestration
+(`offseason_agent`) is **NOT implemented yet** — it is deferred to
+M4-B. The flow below describes the target M4 design; only the
+`evidence_service` step is currently backed by code.
+
+## Standard Flow (target M4-B+)
 
 1. **Receive team + offseason goal.** Input: `team_id`, `goal` (e.g. "retool around a star", "shed salary", "chase a max free agent").
 2. **Load cap sheet.** `cap_sheet_service.load(team_id)` -> current cap space, aprons, guaranteed salaries, exceptions.
@@ -12,9 +20,20 @@ This document describes the standard offseason workflow the agent will follow in
 6. **Simulate signing/trade actions.** Build candidate `TransactionProposal` objects.
 7. **Validate each transaction.** `transaction_rule_engine.validate(proposal)` -> `TransactionValidationResult`. Reject invalid ones or route to fallback.
 8. **Project depth chart.** `depth_chart_projector.project(team_id, applied_transactions)` -> projected depth chart.
-9. **Attach evidence ids.** `evidence_service.attach(...)` -> link supporting `evidence_id`s to each plan.
-10. **Generate structured proposal.** `offseason_agent.assemble_brief(...)` -> structured JSON brief.
+9. **Retrieve supporting evidence.** `evidence_service.search_evidence(...)` / `evidence_service.get_evidence_by_ids(...)` -> `EvidenceBundle` linking supporting `evidence_id`s to each plan. **(Implemented in M4-A.)**
+10. **Generate structured proposal.** `offseason_agent.assemble_brief(...)` -> structured JSON brief. **(Deferred to M4-B.)**
 11. **Wait for human approval.** No state mutation until a human approves via `ApprovalControls`.
+
+## M4-A Scope
+
+Only step 9 (`evidence_service`) is implemented. The
+`evidence_service` is a deterministic, LLM-free, network-free local
+citation layer: it loads DEMO/SAMPLE/SIMULATION notes from
+`data/evidence_notes.json` and returns structured `EvidenceBundle`
+objects. It is **not** a live RAG system and **not** an external news
+scraper. When evidence is missing, it returns an empty
+`matched_notes` tuple + a clear `fallback_reason` — it never
+fabricates citations.
 
 ## Guardrails
 

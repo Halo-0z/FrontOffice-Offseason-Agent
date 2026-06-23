@@ -80,6 +80,39 @@ M3-B free-agent matching & transaction preview deterministic tests
   and `FreeAgentFit` has no `is_valid` / `status` /
   `requires_human_approval` field).
 
+M4-A evidence retrieval deterministic tests (implemented in
+`test_evidence_service.py` and the M4-A block of
+`test_agent_guardrails.py`):
+
+- Load `data/evidence_notes.json` (non-empty, >= 6 notes), every note
+  has `evidence_id` / `title` / `summary` / `source` / `source_type` /
+  `evidence_type` / `sample_data=True`, and the demo pool covers all
+  required `EvidenceType` values (team / player / cap / roster /
+  market / transaction context).
+- `get_evidence_by_ids` returns matched notes for known ids, reports
+  `missing_evidence_ids` for unknown ids, sets a clear
+  `fallback_reason` when nothing is found, and never fabricates notes.
+- `search_evidence` by `team_id` / `player_id` / `topics` / `query`
+  (lowercase token overlap) returns relevant notes, applies `limit`
+  after sorting, and returns empty `matched_notes` + `fallback_reason`
+  when nothing matches.
+- Determinism: same inputs produce identical `matched_notes` orderings
+  across repeated calls; sort is score desc then `evidence_id` asc.
+- No mutation of `data/evidence_notes.json` across all retrieval paths.
+- Immutability: `EvidenceNote` / `EvidenceBundle` / `EvidenceQuery`
+  are frozen.
+- Error handling: missing file, malformed JSON, invalid
+  `evidence_type`, and missing required fields all raise
+  `EvidenceFileMissingError` with a clear message.
+- `build_evidence_bundle` dispatches to id lookup when `evidence_ids`
+  is non-empty, else facet search.
+- Guardrails: missing evidence does not fabricate notes; every returned
+  note/bundle is `sample_data=True`; `evidence_service` does not
+  generate transaction proposals (no `transaction` / `proposal` /
+  `is_valid` / `validation_result` fields on bundle or note);
+  `evidence_service` does not call `transaction_rule_engine`
+  (monkeypatch engine to raise — retrieval still works).
+
 ## Evaluation Harness (future, M6)
 
 - Run the agent over a fixed set of `(team, goal)` seeds.

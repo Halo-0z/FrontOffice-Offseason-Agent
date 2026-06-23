@@ -143,3 +143,19 @@ and `ProjectedDepthChart` via M3-A projectors. Every preview has
 data — all salaries/contracts/free agents are demo/sample/simulation
 JSON. This is **not** a complete NBA trade simulator; multi-year
 contract decay, Bird rights, and sign-and-trade rules are deferred.
+
+M4-A implemented: deterministic `evidence_service` and `EvidenceNote` /
+`EvidenceBundle` / `EvidenceQuery` models. `evidence_service` loads
+DEMO/SAMPLE/SIMULATION evidence notes from `data/evidence_notes.json`
+and returns structured `EvidenceBundle` objects via three entry points:
+`get_evidence_by_ids` (exact id lookup, reports `missing_evidence_ids`
++ `fallback_reason`), `search_evidence` (deterministic scoring by
+team_id / player_id / topics / lowercase query token overlap, sorted
+by score desc then `evidence_id` asc, `limit` applied), and
+`build_evidence_bundle` (dispatches to id lookup when `evidence_ids`
+is non-empty, else facet search). When evidence is missing, returns
+empty `matched_notes` + clear `fallback_reason` — it NEVER fabricates
+notes. Every note/bundle is `sample_data=True`. No LLM, no network, no
+disk writes, no calls to `transaction_rule_engine`, no proposal
+generation. This is the **evidence foundation** for the future M4-B
+offseason agent; the agent itself is NOT implemented yet.
