@@ -530,3 +530,160 @@ def test_proposal_builder_does_not_write_data_files() -> None:
     after = {f: f.read_bytes() for f in files}
     for f in files:
         assert before[f] == after[f], f"proposal_builder must not mutate {f.name}"
+
+
+# --------------------------------------------------------------------------- #
+# M4-D guardrails: the proposal_evaluator must not approve transactions,
+# must not change proposal status to approved, must not call LLM/MCP,
+# must not write data files, and must FAIL proposals missing human
+# approval.
+# --------------------------------------------------------------------------- #
+
+
+def _m4d_goal():
+    from backend.app.models.agent import OffseasonGoal
+
+    return OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+
+
+def test_evaluator_does_not_approve_transactions() -> None:
+    """The evaluator must never mark a proposal or action as approved.
+    It only produces issues; it never changes the proposal's
+    ``requires_human_approval`` invariant."""
+    from backend.app.services.proposal_builder import run_goal_and_build_proposal
+    from backend.app.services.proposal_evaluator import evaluate_structured_proposal
+
+    proposal = run_goal_and_build_proposal(_m4d_goal(), DATA_DIR)
+    evaluation = evaluate_structured_proposal(proposal)
+    # The evaluation must not have any "approved" field or status.
+    assert not hasattr(evaluation, "approved")
+    assert not hasattr(evaluation, "is_approved")
+    # The proposal itself must still require human approval.
+    assert proposal.requires_human_approval is True
+    for action in proposal.recommended_actions:
+        assert action.requires_human_approval is True
+
+
+def test_evaluator_does_not_change_proposal_status_to_approved() -> None:
+    """The evaluator must not change the proposal's status. It returns
+    a separate ``ProposalEvaluation`` with its own ``status`` (PASS /
+    WARNING / FAIL) that is distinct from the proposal's
+    ``ProposalStatus``."""
+    from backend.app.models.evaluation import EvaluationStatus
+    from backend.app.services.proposal_builder import run_goal_and_build_proposal
+    from backend.app.services.proposal_evaluator import evaluate_structured_proposal
+
+    proposal = run_goal_and_build_proposal(_m4d_goal(), DATA_DIR)
+    original_proposal_status = proposal.status
+    evaluation = evaluate_structured_proposal(proposal)
+    # The proposal's status must be unchanged.
+    assert proposal.status == original_proposal_status
+    # The evaluation status must be one of PASS/WARNING/FAIL, NOT any
+    # ProposalStatus value like RECOMMENDED.
+    assert evaluation.status in (
+        EvaluationStatus.PASS,
+        EvaluationStatus.WARNING,
+        EvaluationStatus.FAIL,
+    )
+
+
+def test_evaluator_does_not_use_mcp_or_llm() -> None:
+    """The proposal_evaluator module must not import or expose any MCP
+    or LLM client attributes."""
+    from backend.app.services import proposal_evaluator as evaluator_mod
+
+    for forbidden in (
+        "mcp",
+        "mcp_client",
+        "mcp_server",
+        "MCPClient",
+        "openai",
+        "llm",
+        "anthropic",
+        "chat_completion",
+    ):
+        assert not hasattr(evaluator_mod, forbidden), (
+            f"proposal_evaluator must not expose {forbidden!r}"
+        )
+
+
+def test_evaluator_does_not_write_data_files() -> None:
+    """Running the evaluator must not mutate any of the four core data
+    files."""
+    from backend.app.services.proposal_builder import run_goal_and_build_proposal
+    from backend.app.services.proposal_evaluator import (
+        run_default_evaluation_scenarios,
+    )
+
+    files = [
+        DATA_DIR / "players.json",
+        DATA_DIR / "contracts.json",
+        DATA_DIR / "free_agents.json",
+        DATA_DIR / "evidence_notes.json",
+    ]
+    before = {f: f.read_bytes() for f in files}
+    # Run the full default scenario suite (which builds proposals and
+    # evaluates them).
+    run_default_evaluation_scenarios(DATA_DIR)
+    after = {f: f.read_bytes() for f in files}
+    for f in files:
+        assert before[f] == after[f], f"proposal_evaluator must not mutate {f.name}"
+
+
+def test_evaluator_fails_proposal_missing_human_approval() -> None:
+    """A proposal missing ``requires_human_approval=True`` must produce
+    a FAIL evaluation with a ``missing_human_approval`` issue."""
+    import dataclasses
+
+    from backend.app.models.evaluation import EvaluationIssueCode, EvaluationStatus
+    from backend.app.models.proposal import (
+        ProposalAction,
+        ProposalActionType,
+        ProposalRisk,
+        ProposalRiskLevel,
+        ProposalStatus,
+        StructuredProposal,
+    )
+    from backend.app.services.proposal_evaluator import evaluate_structured_proposal
+
+    # Build a synthetic proposal with requires_human_approval=False.
+    bad_proposal = StructuredProposal(
+        proposal_id="prop-bad",
+        team_id="DEM-ATL",
+        objective="Bad proposal",
+        status=ProposalStatus.RECOMMENDED,
+        recommended_actions=(
+            ProposalAction(
+                action_id="act-0-bad",
+                action_type=ProposalActionType.SIGNING,
+                team_id="DEM-ATL",
+                validation_status="PASS",
+                is_valid=True,
+                requires_human_approval=True,
+            ),
+        ),
+        risks=(
+            ProposalRisk(
+                code="sample_data",
+                level=ProposalRiskLevel.LOW,
+                summary="Demo.",
+            ),
+        ),
+        evidence_refs=(),
+        tool_call_trace=(),
+        fallback_reasons=(),
+        limitations=("M4-C MVP.",),
+        requires_human_approval=False,  # BAD
+        sample_data=True,
+    )
+    evaluation = evaluate_structured_proposal(bad_proposal)
+    assert evaluation.status is EvaluationStatus.FAIL
+    codes = [i.code for i in evaluation.issues]
+    assert EvaluationIssueCode.missing_human_approval in codes

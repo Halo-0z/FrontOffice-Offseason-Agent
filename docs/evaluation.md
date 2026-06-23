@@ -215,6 +215,125 @@ M4-C structured proposal builder deterministic tests (implemented in
   `evidence_refs` only from bundle; builder does not use MCP/LLM;
   builder does not write data files.
 
+M4-D proposal evaluation / fallback layer deterministic tests
+(implemented in `test_proposal_evaluator.py` and the M4-D block of
+`test_agent_guardrails.py`):
+
+- `evaluate_structured_proposal` returns a `ProposalEvaluation` with
+  `status` (`PASS` / `WARNING` / `FAIL`), `issues`, `passed_checks`,
+  `failed_checks`, `warnings`, `limitations`, and `sample_data=True`.
+- A valid `RECOMMENDED` proposal evaluates to `PASS` or `WARNING`
+  (never `FAIL`).
+- A proposal missing `requires_human_approval=True` produces a `FAIL`
+  evaluation with a `missing_human_approval` issue.
+- An action missing `requires_human_approval=True` produces a `FAIL`
+  evaluation with a `missing_human_approval` issue.
+- An action with `validation_status="FAIL"` but `is_valid=True`
+  produces a `FAIL` evaluation with an
+  `approved_without_validation` / `invalid_action_recommended` issue.
+- An invalid signing action cannot be evaluated as a clean `PASS`.
+- A `RECOMMENDED` proposal with empty `evidence_refs` produces a
+  `WARNING` (`missing_evidence` issue).
+- A missing-evidence `fallback_reason` without a corresponding risk
+  produces a `WARNING` (`missing_risk_for_fallback` issue).
+- A `tool_call_trace` missing one of the six key tools produces a
+  `missing_tool_trace` issue.
+- A `NO_ACTION` proposal with a `HOLD` action or a
+  `no_matching_candidate` risk does NOT fail evaluation.
+- A `RECOMMENDED` proposal with no candidates produces a `FAIL`
+  (`no_action_fallback` issue).
+- `sample_data=True` is recognized and recorded as an INFO issue
+  (`sample_data_only`).
+- No mutation of `data/players.json`, `data/contracts.json`,
+  `data/free_agents.json`, or `data/evidence_notes.json` across an
+  evaluation.
+- The evaluator does not call any LLM / OpenAI API (no `openai` /
+  `llm` / `anthropic` / `chat_completion` attributes on the module).
+- The evaluator does not use MCP (no `mcp` / `mcp_client` /
+  `mcp_server` / `MCPClient` attributes on the module).
+- The evaluator does not call `transaction_rule_engine` (monkeypatch
+  engine to raise — evaluator still works on a pre-built proposal).
+- The evaluator does not call `trade_simulator` (monkeypatch simulator
+  to raise — evaluator still works on a pre-built proposal).
+- `run_evaluation_scenario` returns an `EvaluationScenarioResult`
+  with `scenario_id` / `proposal` / `evaluation` / `status` /
+  `limitations`.
+- `run_default_evaluation_scenarios` returns multiple
+  `EvaluationScenarioResult` objects (4 default scenarios).
+- Default scenarios all evaluate to a non-`FAIL` scenario status
+  (unless a scenario explicitly tests a failure path).
+- Scenario outputs are deterministic: two consecutive runs of
+  `run_default_evaluation_scenarios` produce equal results.
+- Immutability: `ProposalEvaluation` / `EvaluationIssue` /
+  `EvaluationScenarioResult` are frozen.
+- `passed_checks` is populated with the names of checks that passed.
+- `limitations` documents MVP scope (M4-D, no LLM, no MCP, no
+  external NBA API, evaluator does not approve transactions).
+- Guardrails: evaluator does not approve transactions (no `approved`
+  / `is_approved` field); evaluator does not change the proposal's
+  `ProposalStatus` to "approved" (proposal status unchanged after
+  evaluation; evaluation status is one of `PASS` / `WARNING` /
+  `FAIL`); evaluator does not use MCP/LLM; evaluator does not write
+  data files; evaluator FAILS proposals missing human approval.
+
+### M4-D Scenario Evaluation
+
+`run_default_evaluation_scenarios` runs 4 fixed demo scenarios
+end-to-end as a regression suite. Each scenario builds a proposal via
+`run_goal_and_build_proposal` (because the scenario suite evaluates
+the full system), then evaluates it via
+`evaluate_structured_proposal`, then checks expected constraints
+(`expected_statuses`, `expected_min_actions`, `expected_risk_codes`).
+
+| Scenario | Goal | Expected proposal status | Expected min actions | Expected risk codes |
+|---|---|---|---|---|
+| `success_center_signing` | DEM-ATL, target_positions=('C',), max_salary=20M | `RECOMMENDED` | 1 | `sample_data` |
+| `strict_budget_no_action` | DEM-ATL, target_positions=('C',), max_salary=15M | `NO_ACTION` or `PARTIAL` | 0 | `no_matching_candidate` |
+| `broad_need_multiple_candidates` | DEM-ATL, target_positions=(), max_salary=20M, max_candidates=2 | any non-`BLOCKED` | 1 | (none required) |
+| `evidence_fallback_case` | DEM-ATL, evidence_query uses a non-matching query | any | 0 | (fallback / risk expected) |
+
+### M4-D Guardrail Checks
+
+The evaluator enforces the following guardrails on every
+`StructuredProposal`:
+
+| Guardrail | Issue code | Severity | Trigger |
+|---|---|---|---|
+| Human approval | `missing_human_approval` | ERROR | proposal or any action has `requires_human_approval=False` |
+| Validation consistency | `approved_without_validation` | ERROR | action `validation_status="FAIL"` but `is_valid=True` |
+| Validation consistency | `invalid_action_recommended` | ERROR/WARNING | `RECOMMENDED` with no valid action |
+| Evidence | `missing_evidence` | WARNING | `RECOMMENDED` with empty `evidence_refs` |
+| Evidence | `missing_risk_for_fallback` | WARNING | `fallback_reasons` mentions missing evidence but no risk |
+| Tool trace | `missing_tool_trace` | WARNING | `tool_call_trace` missing one of the six key tools |
+| Fallback | `no_action_fallback` | ERROR | `RECOMMENDED` with no candidates |
+| Fallback | `missing_risk_for_fallback` | WARNING | `fallback_reasons` non-empty but no risk or limitation |
+| Sample data | `sample_data_only` | INFO | always emitted (proposal is sample data) |
+| Mutation | `no_mutation_guardrail` | ERROR | (reserved for runtime checks; evaluator itself does not mutate) |
+| Determinism | `non_deterministic_output` | ERROR | (reserved for scenario determinism checks) |
+
+### M4-D Fallback Checks
+
+The evaluator checks fallback consistency:
+
+- A `NO_ACTION` proposal must carry a `HOLD` action OR a
+  `no_matching_candidate` risk; otherwise it produces a
+  `no_action_fallback` issue.
+- A `RECOMMENDED` proposal with no candidates produces a `FAIL`
+  (`no_action_fallback`).
+- Non-empty `fallback_reasons` must be backed by a risk or
+  limitation; otherwise a `missing_risk_for_fallback` WARNING is
+  emitted.
+
+### M4-D Determinism Checks
+
+- `evaluate_structured_proposal` is a pure function of its input:
+  same proposal → same evaluation.
+- `run_default_evaluation_scenarios` is deterministic: two
+  consecutive runs produce equal `EvaluationScenarioResult` tuples
+  (verified by `r1 == r2` in tests and in the verification commands).
+- The evaluator does NOT depend on wall-clock time, random numbers,
+  network, or any external state.
+
 ## Evaluation Harness (future, M6)
 
 - Run the agent over a fixed set of `(team, goal)` seeds.

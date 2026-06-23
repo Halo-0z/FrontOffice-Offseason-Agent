@@ -2,18 +2,27 @@
 
 This document describes the standard offseason workflow the agent follows.
 
-## Current Status (M4-C)
+## Current Status (M4-D)
 
-M4-C implements the **deterministic structured proposal builder**
-(`proposal_builder.build_structured_proposal`). The builder consumes
-an M4-B `OffseasonAgentRun` and produces a frontend-friendly
-`StructuredProposal` with `proposal_id`, `status`
-(`RECOMMENDED` / `PARTIAL` / `BLOCKED` / `NO_ACTION`),
-`recommended_actions`, `risks`, `evidence_refs`, `tool_call_trace`,
-short deterministic summaries, `fallback_reasons`, and `limitations`.
+M4-D implements the **deterministic proposal evaluation / fallback
+layer** (`proposal_evaluator.evaluate_structured_proposal`). The
+evaluator consumes a M4-C `StructuredProposal` and returns a
+`ProposalEvaluation` with `status` (`PASS` / `WARNING` / `FAIL`),
+`issues`, `passed_checks`, `failed_checks`, `warnings`,
+`limitations`, and `sample_data=True`. It does NOT generate new
+proposals, does NOT approve transactions, does NOT change the
+proposal's status to "approved", does NOT call
+`transaction_rule_engine` or `trade_simulator`, does NOT call any
+LLM, does NOT use MCP, and does NOT write to disk.
+`run_evaluation_scenario` and `run_default_evaluation_scenarios` run
+a fixed set of 4 demo scenarios end-to-end as a regression suite
+(they internally call `run_goal_and_build_proposal` because the
+scenario suite evaluates the full system; `evaluate_structured_proposal`
+itself only consumes a `StructuredProposal`).
+
 This is **not** an MCP server, **not** an MCP client, **not** an LLM
 agent, and **not** an OpenAI function-calling harness — it is a purely
-deterministic proposal builder. No LLM, no network, no disk writes.
+deterministic evaluator. No LLM, no network, no disk writes.
 
 Natural-language polish / LLM output is deferred to a later milestone.
 
@@ -63,6 +72,31 @@ goal (OffseasonGoal)
             requires_human_approval: True (always)
             sample_data: True (always)
             limitations: MVP scope notes
+  -> [M4-D] evaluate_structured_proposal(proposal)
+       -> check human-approval guardrail
+            (proposal.requires_human_approval=True AND
+             every ProposalAction.requires_human_approval=True)
+       -> check validation guardrail
+            (FAIL validations must not appear as valid recommended actions;
+             RECOMMENDED with no valid action is WARNING/FAIL)
+       -> check evidence guardrail
+            (no fabricated evidence; empty evidence_refs on RECOMMENDED
+             is WARNING; missing-evidence fallback without a risk is WARNING)
+       -> check tool-trace guardrail
+            (six key tools must appear in tool_call_trace)
+       -> check fallback consistency
+            (NO_ACTION must carry HOLD action or no_matching_candidate risk;
+             fallback_reasons must be backed by a risk or limitation;
+             no candidates but RECOMMENDED is FAIL)
+       -> check sample-data guardrail
+            (sample_data=True is required; recorded as INFO issue)
+       -> ProposalEvaluation
+            status: PASS / WARNING / FAIL (derived from issue severities)
+            issues: list of EvaluationIssue (code / severity / summary / remediation)
+            passed_checks / failed_checks / warnings / limitations
+            sample_data: True (always)
+       -> NOTE: evaluator does NOT approve transactions and does NOT
+            change the proposal's ProposalStatus. It only emits issues.
   -> frontend / brief output
        (natural-language polish / LLM output deferred to a later milestone)
 ```
@@ -77,6 +111,14 @@ filtering), the trace records `FALLBACK` with a clear
 The M4-C builder is **pure**: it does NOT re-run any tool, does NOT
 call `transaction_rule_engine` or `trade_simulator` directly, and
 does NOT write to disk. It only consumes the `OffseasonAgentRun`.
+
+The M4-D evaluator is **pure**: it does NOT re-run any tool, does NOT
+call `transaction_rule_engine` or `trade_simulator`, does NOT call
+any LLM, does NOT use MCP, and does NOT write to disk. It only
+consumes the `StructuredProposal`. The scenario runner
+(`run_evaluation_scenario` / `run_default_evaluation_scenarios`) is
+the only path that calls `run_goal_and_build_proposal`, because the
+scenario suite is a regression test of the full end-to-end system.
 
 ## M4-B Flow (implemented)
 
@@ -140,8 +182,9 @@ add natural-language polish / LLM output on top of the
 7. **Retrieve supporting evidence.** `evidence_service.search_evidence` + `get_evidence_by_ids` → `EvidenceBundle`.
 8. **Assemble structured run.** `OffseasonAgentRun` with `tool_call_trace`. **(Implemented in M4-B.)**
 9. **Build structured proposal.** `StructuredProposal` with actions, risks, evidence refs. **(Implemented in M4-C.)**
-10. **Natural-language polish / LLM output.** Plan cards, rationale, risk notes. **(Deferred to a later milestone.)**
-11. **Wait for human approval.** No state mutation until a human approves.
+10. **Evaluate proposal.** `proposal_evaluator.evaluate_structured_proposal` → `ProposalEvaluation` with `status` / `issues` / `passed_checks` / `failed_checks` / `warnings` / `limitations`. The evaluator does NOT approve transactions; it only emits issues and a PASS/WARNING/FAIL status. **(Implemented in M4-D.)**
+11. **Natural-language polish / LLM output.** Plan cards, rationale, risk notes. **(Deferred to a later milestone.)**
+12. **Wait for human approval.** No state mutation until a human approves.
 
 ## Guardrails
 
@@ -152,6 +195,10 @@ add natural-language polish / LLM output on top of the
 - The agent **must not** use MCP or call an LLM.
 - If a required tool call fails or data is missing, the agent emits a **fallback** trace entry, not a silent success.
 - The structured output **must** include all required fields; otherwise it is rejected upstream.
+- The evaluator **must not** approve transactions or change the proposal's `ProposalStatus` to "approved" — it only emits issues and a PASS/WARNING/FAIL evaluation status.
+- The evaluator **must not** call `transaction_rule_engine` or `trade_simulator`; it only consumes the `StructuredProposal`.
+- The evaluator **must not** call any LLM, **must not** use MCP, and **must not** write to disk.
+- The evaluator **must** FAIL any proposal missing `requires_human_approval=True` on the proposal or any action.
 
 ## Fallback Handling
 

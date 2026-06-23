@@ -69,9 +69,15 @@ The LLM/agent layer is an **advisor**, never a **mutator**.
 | M1 | Cap Sheet Model (`SalaryCapConfig`, `TeamCapSheet`, `PlayerContract`). |
 | M2 | Transaction Rule Engine (signing/trade legality validation). |
 | M3 | Roster / Target / Projection services (roster need, FA pool, trade sim, depth chart, evidence). |
-| M4 | Offseason Agent (task decomposition, tool orchestration, structured brief). |
+| M4 | Offseason Agent (task decomposition, tool orchestration, structured brief, evaluation/fallback). |
 | M5 | Frontend Simulator (cap sheet panel, plan card, depth chart, evidence, approval controls). |
 | M6 | Evaluation (metrics + pytest harness). |
+
+> Status note: M0–M4-D are implemented as a deterministic local backend.
+> The project has **not** called any LLM, has **not** connected to MCP,
+> and has **not** connected to the real NBA API or any live salary data
+> source. All players / contracts / free agents / evidence notes are
+> demo/sample/simulation JSON.
 
 ## Repository Layout
 
@@ -206,3 +212,39 @@ is a preview that requires human approval. The convenience wrapper
 `run_goal_and_build_proposal(goal)` runs `run_offseason_plan` then
 `build_structured_proposal`. Natural-language polish / LLM output is
 deferred to a later milestone.
+
+M4-D implemented: deterministic `proposal_evaluator` that evaluates a
+M4-C `StructuredProposal` for safety, completeness, and
+trustworthiness — it does NOT generate new proposals and does NOT
+approve transactions. `evaluate_structured_proposal(proposal)` returns
+a `ProposalEvaluation` with `status` (`PASS` / `WARNING` / `FAIL`),
+`issues` (each an `EvaluationIssue` with `code` / `severity` /
+`summary` / `remediation`, e.g. `missing_human_approval`,
+`approved_without_validation`, `invalid_action_recommended`,
+`missing_tool_trace`, `missing_evidence`, `sample_data_only`,
+`no_action_fallback`, `no_mutation_guardrail`,
+`missing_risk_for_fallback`, `non_deterministic_output`),
+`passed_checks`, `failed_checks`, `warnings`, `limitations`, and
+`sample_data=True`. Checks cover: human-approval guardrail (proposal
++ every action must have `requires_human_approval=True`),
+validation guardrail (FAIL validations must not appear as valid
+recommended actions), evidence guardrail (no fabricated evidence,
+empty `evidence_refs` on a `RECOMMENDED` proposal is a WARNING),
+tool-trace guardrail (the six key tools must appear in
+`tool_call_trace`), fallback consistency (`NO_ACTION` must carry a
+`HOLD` action or `no_matching_candidate` risk; `fallback_reasons`
+must be backed by a risk or limitation), sample-data guardrail
+(`sample_data=True` is required and recorded as an INFO issue), and
+determinism (scenario outputs are reproducible).
+`run_evaluation_scenario(scenario)` and
+`run_default_evaluation_scenarios()` run a fixed set of 4 demo
+scenarios end-to-end (`success_center_signing`,
+`strict_budget_no_action`, `broad_need_multiple_candidates`,
+`evidence_fallback_case`) as a regression suite. The evaluator does
+NOT call any LLM, does NOT use MCP, does NOT call
+`transaction_rule_engine` or `trade_simulator`, does NOT write to
+disk, and does NOT change the proposal's status to "approved". The
+convenience wrapper `run_goal_and_build_proposal` is used inside the
+scenario runner because the scenario suite evaluates the full
+end-to-end system; `evaluate_structured_proposal` itself only
+consumes a `StructuredProposal`.
