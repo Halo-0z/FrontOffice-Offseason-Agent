@@ -163,13 +163,17 @@ The project enforces hard boundaries that are covered by
 | M4-C | Structured proposal builder | done (tag `m4c-structured-proposal-builder`) |
 | M4-D | Proposal evaluation + fallback checks | done (tag `m4d-proposal-evaluation-fallback`) |
 | M5-A | Lightweight proposal viewer / CLI demo | done (tag `m5a-proposal-viewer-cli-demo`) |
-| M5-B | Project polish / demo runbook / README packaging | this milestone (docs-only) |
+| M5-B | Project polish / demo runbook / README packaging | done (tag `m5b-project-polish-demo-runbook`) |
+| M5-C | Docs consistency cleanup | done (tag `m5c-docs-consistency-cleanup`) |
+| M5-D | Final release snapshot / submission package | done (tag `m5d-final-release-snapshot`) |
+| M6-A | Static frontend proposal viewer | this milestone (static viewer, sample data) |
 
-> Status note: M0–M5-A are implemented as a deterministic local
-> backend. The project has **not** called any LLM, has **not**
-> connected to MCP, and has **not** connected to the real NBA API or
-> any live salary data source. All players / contracts / free agents /
-> evidence notes are demo / sample / simulation JSON.
+> Status note: M0–M5-D are implemented as a deterministic local
+> backend with a CLI demo. M6-A adds a **static** frontend viewer
+> (sample data, no API calls). The project has **not** called any LLM,
+> has **not** connected to MCP, and has **not** connected to the real
+> NBA API or any live salary data source. All players / contracts /
+> free agents / evidence notes are demo / sample / simulation JSON.
 
 ## Repository Layout
 
@@ -203,8 +207,12 @@ docs/              # architecture, agent-workflow, evaluation, demo-runbook, pro
   rumor integration.
 - **No official approval / execution system** — every output is a
   preview that requires a human to approve outside the system.
-- **CLI viewer only** — there is no frontend page yet; the demo is the
-  CLI script and the text / JSON brief.
+- **CLI viewer + static frontend viewer** — the CLI script
+  (`backend/scripts/run_offseason_demo.py`) renders text / JSON briefs;
+  the M6-A static frontend viewer (`frontend/app/offseason/page.tsx`)
+  renders two demo scenarios (default recommendation + strict-budget
+  fallback) from a static payload. The frontend does **not** call any
+  backend API — it renders a snapshot of the CLI JSON output.
 - **No LLM / MCP integration** — natural-language polish and MCP tool
   hosting are deferred to later milestones.
 
