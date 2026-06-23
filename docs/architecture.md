@@ -51,7 +51,7 @@ This document describes the layered architecture of `FrontOffice-Offseason-Agent
 ## Service Responsibilities
 
 - `cap_sheet_service` — Computes and exposes the team cap sheet (cap space, aprons, guarantees, exceptions). The single source of truth for salary state. M1 implements: `load_cap_config`, `load_contracts`, `load_team_cap_sheet`, `summarize_cap_sheet`, and a pure `apply_signing_preview` that returns a new `TeamCapSheet` without mutating the input. All cap figures come from `data/cap_config.json`; nothing is hardcoded in Python.
-- `transaction_rule_engine` — Deterministic validation of signings and trades (cap legality, salary matching, roster limits, CBA-style rules). Returns `TransactionValidationResult`.
+- `transaction_rule_engine` — Deterministic validation of signings and trades (cap legality, salary matching, roster limits, CBA-style rules). Returns `ValidationResult`. M2 implements `validate_signing` / `validate_trade` / `validate_transaction` for `MINIMUM_SIGNING`, `MLE_SIGNING`, `SIMPLE_FA_SIGNING`, and `TWO_TEAM_TRADE`. MVP rules: minimum/MLE salary thresholds, simple-FA must stay under the cap, roster slot limits (`roster_max`), simplified salary matching (`incoming <= outgoing * 1.25 + 100_000`), and apron crossing warnings. Apron hard caps are **not** enforced in M2 (warnings only). The engine never mutates `data/contracts.json` or any roster state; every result has `requires_human_approval=True`.
 - `roster_need_service` — Analyzes roster composition and identifies positional/role shortfalls.
 - `free_agent_service` — Reads the free-agent pool and returns candidate targets filtered by team need and cap feasibility.
 - `trade_simulator` — Simulates two-team trades: salary matching, asset exchange, post-trade cap impact.

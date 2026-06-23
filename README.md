@@ -99,3 +99,15 @@ from `data/cap_config.json`, builds immutable `TeamCapSheet` objects from
 `second_apron_distance`), and exposes a pure `apply_signing_preview`
 that returns a new sheet without mutating the input. No LLM, no state
 writes, no transaction legality logic (that is M2).
+
+M2 implemented: deterministic `transaction_rule_engine` validates
+demo-level signings (`MINIMUM_SIGNING`, `MLE_SIGNING`,
+`SIMPLE_FA_SIGNING`) and simple two-team trades against MVP rules
+(salary caps, MLE/minimum thresholds, roster slot limits, simplified
+salary matching `incoming <= outgoing * 1.25 + 100_000`, apron
+warnings). Returns a structured `ValidationResult` with `status`
+(`PASS` / `WARNING` / `FAIL`), `is_valid`, `issues`, `warnings`,
+`cap_summary_before`/`after`, `evidence_ids`, `requires_human_approval`
+(always `True`), and `limitations`. This is **not** a complete NBA CBA
+implementation; apron hard caps are warnings only. The engine never
+mutates `data/contracts.json` or any roster state.

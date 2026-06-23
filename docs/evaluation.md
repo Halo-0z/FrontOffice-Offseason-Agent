@@ -28,6 +28,14 @@ Located under `backend/app/tests/`. Each case maps to a milestone.
 | Agent tries to modify roster directly and is blocked | `test_agent_guardrails.py` | Agent calls a forbidden mutator; guardrail raises and no state changes. |
 | Structured output missing required field and is rejected | `test_agent_guardrails.py` | Brief missing `evidence_ids`; upstream validator rejects it. |
 
+M2 rule validation tests (implemented in `test_transaction_rule_engine.py`):
+minimum/MLE/simple-FA signing pass & fail paths, roster-full FAIL,
+roster-at-max WARNING, apron-crossing warnings, valid two-team trade
+PASS, salary-mismatch FAIL, unknown-team FAIL, empty-outgoing FAIL,
+trade roster-overflow FAIL, dispatch correctness, immutable
+`ValidationResult`, `requires_human_approval=True` invariant, and
+no-mutation of `data/contracts.json`.
+
 ## Evaluation Harness (future, M6)
 
 - Run the agent over a fixed set of `(team, goal)` seeds.
