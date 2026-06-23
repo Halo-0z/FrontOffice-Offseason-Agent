@@ -111,15 +111,25 @@ Layer purity rules (enforced by tests):
 
 ## Data Flow (per offseason goal)
 
+The actual deterministic data flow (implemented in M4-B → M5-A) uses
+these real method names:
+
 ```
-team + goal
-  -> cap_sheet_service.load(team)
-  -> roster_need_service.analyze(team)
-  -> free_agent_service.candidates(team, needs, cap)
-  -> trade_simulator.candidates(team, needs, cap)
-  -> [for each candidate] transaction_rule_engine.validate(...)
-  -> depth_chart_projector.project(team, applied_transactions)
-  -> evidence_service.attach(evidence_ids)
-  -> offseason_agent.assemble_brief(...)
-  -> human approval gate
+OffseasonGoal (team_id, objective, target_positions, max_salary, ...)
+  -> cap_sheet_service.load_team_cap_sheet(team_id)
+  -> cap_sheet_service.summarize_cap_sheet(sheet)
+  -> roster_need_service.evaluate_roster_needs(team_id)
+  -> depth_chart_projector.project_current_depth_chart(team_id)
+  -> free_agent_service.rank_free_agents_for_team(team_id)
+       filtered by goal.target_positions / goal.max_salary / goal.max_candidates
+  -> [for each top fit] trade_simulator.preview_signing(SigningTransaction)
+       which calls transaction_rule_engine.validate_transaction(...) internally
+       every preview has requires_human_approval=True
+  -> evidence_service.search_evidence(query, team_id)
+  + evidence_service.get_evidence_by_ids(fit evidence_ids)
+  -> offseason_agent.run_offseason_plan(goal) -> OffseasonAgentRun (with tool_call_trace)
+  -> proposal_builder.build_structured_proposal(agent_run) -> StructuredProposal
+  -> proposal_evaluator.evaluate_structured_proposal(proposal) -> ProposalEvaluation
+  -> proposal_viewer.format_proposal_brief(proposal, evaluation) -> text brief | JSON payload
+  -> human approval gate (deferred — no auto-approval anywhere)
 ```

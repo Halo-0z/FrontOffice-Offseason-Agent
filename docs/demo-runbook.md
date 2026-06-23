@@ -95,8 +95,8 @@ D:\anaconda\python.exe backend/scripts/run_offseason_demo.py --target-position C
 
 **Expected output (text brief)**:
 
-- Header: `proposal status: NO_ACTION` (or `PARTIAL`),
-  `evaluation status: PASS` (or `WARNING`).
+- Header: `proposal status: NO_ACTION`,
+  `evaluation status: PASS`.
 - `--- Recommended Actions (preview only) ---` section contains a
   `HOLD` action (no `SIGNING` action with `is_valid: True`).
 - `--- Risks ---` section contains a `no_matching_candidate` risk.
@@ -204,7 +204,7 @@ broken and the test suite should be re-run.
 |---|---|---|---|
 | 0 | `pytest backend/app/tests` | 0 | 325 passed |
 | 1 | `run_offseason_demo.py` | 0 | `RECOMMENDED` + `PASS` |
-| 2 | `--target-position C --max-salary 15000000 --max-candidates 2` | 0 | `NO_ACTION` (or `PARTIAL`) + `HOLD` + `no_matching_candidate` |
+| 2 | `--target-position C --max-salary 15000000 --max-candidates 2` | 0 | `NO_ACTION` + `HOLD` + `no_matching_candidate` |
 | 3 | `--format json` | 0 | Valid sorted-keys JSON with all top-level keys |
 | 4 | `--team-id UNKNOWN-TEAM-XYZ` | non-zero | Clear error mentioning known team ids |
 | 5 | no-mutation one-liner | 0 | `[True, True, True, True]` |

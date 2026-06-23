@@ -254,11 +254,11 @@ add natural-language polish / LLM output on top of the
 
 | Trigger | Fallback |
 |---|---|
-| Missing contract data | Skip player, mark `fallbacks` entry, continue. |
+| Missing contract data | Skip player, record `fallback_reason`, continue. |
 | Roster full | Skip signing path, suggest trade-only or waive suggestion. |
-| Cap space insufficient | Mark plan as `cap_risk`, suggest salary-dump trade. |
-| Salary matching fails | Drop trade candidate, log to `fallbacks`. |
-| Evidence missing | Mark plan `low_confidence`, list in `limitations`. |
+| Cap space insufficient | Emit `cap_pressure` risk, suggest salary-dump trade. |
+| Salary matching fails | Drop trade candidate, record `fallback_reason`. |
+| Evidence missing | Record `fallback_reason`, emit `evidence_missing` risk, list in `limitations`. |
 | Agent attempts direct mutation | Blocked by guardrail, test `test_agent_guardrails.py`. |
 
 ## Failure Paths (deterministic)
@@ -315,93 +315,126 @@ in the system ever sets the action's `is_valid` to `True` after a
 
 ## Structured Output Example
 
+The actual structured output is the `StructuredProposal` (M4-C) +
+`ProposalEvaluation` (M4-D) produced by the deterministic pipeline.
+The JSON payload below is a **simplified, schema-accurate** sketch of
+what `backend/scripts/run_offseason_demo.py --format json` emits for
+the default DEM-ATL scenario. Field names match the frozen dataclasses
+in `backend/app/models/proposal.py` and `backend/app/models/evaluation.py`.
+All values are **sample / simulation data** — this is a preview, not a
+real NBA prediction, and no transaction is ever approved.
+
 ```json
 {
-  "team": "DEM",
-  "goal": "Add a starting-caliber PG without shedding core salary.",
-  "plans": [
-    {
-      "plan_id": "P-001",
-      "type": "signing",
-      "target_player_id": "fa-042",
-      "rationale": "Roster lacks a true starting PG; cap space allows a mid-level deal.",
-      "evidence_ids": ["ev-007", "ev-019"]
-    },
-    {
-      "plan_id": "P-002",
-      "type": "trade",
-      "partner_team_id": "DEM-2",
-      "outgoing": ["pl-018"],
-      "incoming": ["pl-077"],
-      "rationale": "Salary matching trade that upgrades backup wing depth.",
-      "evidence_ids": ["ev-031"]
-    }
-  ],
-  "transactions": [
-    {
-      "transaction_id": "T-001",
-      "type": "signing",
-      "team": "DEM",
-      "player_id": "fa-042",
-      "terms": { "years": 2, "annual_salary": 12500000 },
-      "validation_status": "valid"
-    },
-    {
-      "transaction_id": "T-002",
-      "type": "trade",
-      "team_a": "DEM",
-      "team_b": "DEM-2",
-      "team_a_outgoing": ["pl-018"],
-      "team_b_outgoing": ["pl-077"],
-      "validation_status": "valid"
-    }
-  ],
-  "validation_status": "all_valid",
-  "projected_depth_chart": {
-    "PG": ["fa-042", "pl-009"],
-    "SG": ["pl-021", "pl-033"],
-    "SF": ["pl-007", "pl-040"],
-    "PF": ["pl-011", "pl-025"],
-    "C":  ["pl-002", "pl-050"]
+  "proposal": {
+    "proposal_id": "prop-DEM-ATL-add-frontcourt-help",
+    "team_id": "DEM-ATL",
+    "objective": "Add frontcourt help",
+    "status": "RECOMMENDED",
+    "recommended_actions": [
+      {
+        "action_id": "act-0-m4b-preview-0-fa-005",
+        "action_type": "SIGNING",
+        "team_id": "DEM-ATL",
+        "transaction_id": "m4b-preview-0-fa-005",
+        "player_id": "fa-005",
+        "player_name": "Demo FA Quebec",
+        "position": "C",
+        "salary": 18000000,
+        "validation_status": "PASS",
+        "is_valid": true,
+        "requires_human_approval": true,
+        "fit_score": 0.78,
+        "matched_need": "C: have 0, target 2",
+        "cap_impact_summary": "cap_space_before=... cap_space_after=...",
+        "roster_impact_summary": "roster_count_before=... roster_count_after=...",
+        "depth_chart_impact_summary": "C starter=None -> fa-005",
+        "evidence_ids": ["ev-001", "ev-003"],
+        "limitations": ["preview only", "requires human approval"]
+      }
+    ],
+    "risks": [
+      { "code": "sample_data", "level": "LOW", "summary": "Demo/sample data.", "evidence_ids": [] }
+    ],
+    "evidence_refs": [
+      { "evidence_id": "ev-001", "title": "...", "source": "...", "evidence_type": "team", "sample_data": true }
+    ],
+    "tool_call_trace": [
+      { "tool_name": "cap_sheet_service", "status": "SUCCESS", "input_summary": "...", "output_summary": "...", "fallback_reason": null, "evidence_ids": [] }
+    ],
+    "cap_summary": "total_salary=... cap_space=...",
+    "roster_need_summary": "roster_count=... needs=[C]",
+    "depth_chart_summary": "PG:... SG:... SF:... PF:... C:None",
+    "fallback_reasons": [],
+    "limitations": ["M4-C deterministic proposal builder.", "No LLM call.", "No MCP.", "sample data", "preview only", "requires human approval"],
+    "requires_human_approval": true,
+    "sample_data": true
   },
-  "cap_risk": {
-    "level": "low",
-    "notes": "Plan stays below first apron after signings."
+  "evaluation": {
+    "proposal_id": "prop-DEM-ATL-add-frontcourt-help",
+    "team_id": "DEM-ATL",
+    "status": "PASS",
+    "issues": [
+      { "code": "sample_data_only", "severity": "INFO", "summary": "Proposal built from sample data.", "action_id": null, "evidence_ids": [], "remediation": "" }
+    ],
+    "passed_checks": ["human_approval_guardrail", "validation_guardrail", "tool_trace_guardrail", "fallback_consistency", "sample_data_guardrail"],
+    "failed_checks": [],
+    "warnings": [],
+    "limitations": ["M4-D deterministic evaluation.", "No LLM call.", "No MCP.", "sample data"],
+    "sample_data": true
   },
-  "basketball_fit": {
-    "score": 0.78,
-    "notes": "Improves PG rotation and wing defense; bench scoring unchanged."
-  },
-  "confidence": 0.72,
-  "evidence_ids": ["ev-007", "ev-019", "ev-031"],
+  "actions": ["(alias for proposal.recommended_actions)"],
+  "evidence": ["(alias for proposal.evidence_refs)"],
+  "tool_trace": ["(alias for proposal.tool_call_trace)"],
+  "limitations": ["(combined proposal + viewer limitations)"],
   "requires_human_approval": true,
-  "fallbacks": [
-    { "plan_id": "P-003", "reason": "cap_space_insufficient", "details": "Target fa-091 requires max contract." }
-  ],
-  "limitations": [
-    "Demo cap rules; not a full CBA model.",
-    "Trade values are heuristic, not market-tested.",
-    "Evidence pool is local and small."
-  ]
+  "sample_data": true
 }
 ```
 
+For the full payload, run `python backend/scripts/run_offseason_demo.py --format json`.
+
 ## Field Contract
 
-| Field | Required | Notes |
-|---|---|---|
-| `team` | yes | Team id. |
-| `goal` | yes | Offseason goal string. |
-| `plans` | yes | Array of plan objects with rationale + evidence_ids. |
-| `transactions` | yes | Array of validated transaction objects. |
-| `validation_status` | yes | `all_valid` / `partial` / `all_invalid`. |
-| `projected_depth_chart` | yes | Position -> player ids. |
-| `cap_risk` | yes | `{level, notes}`. |
-| `basketball_fit` | yes | `{score, notes}`. |
-| `confidence` | yes | 0..1. |
-| `evidence_ids` | yes | Flat list of cited evidence. |
-| `requires_human_approval` | yes | Always `true` in M4. |
-| `fallbacks` | yes | Array, possibly empty. |
-| `limitations` | yes | Array, possibly empty. |
+The actual schema is defined by the frozen dataclasses in
+`backend/app/models/proposal.py` and `backend/app/models/evaluation.py`.
+The key fields are:
 
-Missing any required field => the brief is rejected by the upstream validator (see `docs/evaluation.md`).
+### `StructuredProposal`
+
+| Field | Type | Notes |
+|---|---|---|
+| `proposal_id` | `str` | Deterministic id: `prop-{team_id}-{slugified-objective}`. |
+| `team_id` | `str` | Team the proposal is for. |
+| `objective` | `str` | Echoed from `OffseasonGoal`. |
+| `status` | `ProposalStatus` | `RECOMMENDED` / `PARTIAL` / `BLOCKED` / `NO_ACTION`. Never `APPROVED`. |
+| `recommended_actions` | `Tuple[ProposalAction, ...]` | Each action is a preview; `requires_human_approval=True`. |
+| `risks` | `Tuple[ProposalRisk, ...]` | Each has `code` / `level` / `summary` / `evidence_ids`. |
+| `evidence_refs` | `Tuple[ProposalEvidenceRef, ...]` | Flattened from matched evidence notes; never fabricated. |
+| `tool_call_trace` | `Tuple[ToolCallRecord, ...]` | Echoed from `OffseasonAgentRun`. |
+| `cap_summary` | `str` | Short deterministic cap summary. |
+| `roster_need_summary` | `str` | Short deterministic roster-need summary. |
+| `depth_chart_summary` | `str` | Short deterministic depth-chart summary. |
+| `fallback_reasons` | `Tuple[str, ...]` | Human-readable fallback strings (may be empty). |
+| `limitations` | `Tuple[str, ...]` | MVP limitation notes. |
+| `requires_human_approval` | `bool` | Always `True`. |
+| `sample_data` | `bool` | Always `True`. |
+
+### `ProposalEvaluation`
+
+| Field | Type | Notes |
+|---|---|---|
+| `proposal_id` | `str` | Echoed from the evaluated proposal. |
+| `team_id` | `str` | Echoed from the evaluated proposal. |
+| `status` | `EvaluationStatus` | `PASS` / `WARNING` / `FAIL`. Never `APPROVED`. |
+| `issues` | `Tuple[EvaluationIssue, ...]` | Each has `code` / `severity` / `summary` / `action_id` / `evidence_ids` / `remediation`. |
+| `passed_checks` | `Tuple[str, ...]` | Check names that passed. |
+| `failed_checks` | `Tuple[str, ...]` | Check names that failed (ERROR only). |
+| `warnings` | `Tuple[str, ...]` | Check names that produced warnings. |
+| `limitations` | `Tuple[str, ...]` | MVP limitation notes. |
+| `sample_data` | `bool` | Always `True`. |
+
+The evaluator does NOT approve transactions and does NOT change the
+proposal's `status` to `APPROVED`. It only emits issues and a
+`PASS` / `WARNING` / `FAIL` evaluation status. See
+`docs/evaluation.md` for the full test inventory.
