@@ -145,16 +145,60 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health() -> Dict[str, Any]:
-    """Liveness probe.
+    """Liveness probe + data source metadata.
 
-    Returns a small deterministic JSON object. ``sample_data`` is
-    always ``true`` — this API only serves demo/simulation data.
+    Returns a small deterministic JSON object. The legacy fields
+    (``status``, ``sample_data``, ``service``) are always present and
+    unchanged. M8-C1/C2 adds additive data-source metadata
+    (``data_mode``, ``active_data_source``, ``snapshot_id``, etc.) so
+    the frontend / ops can see whether the backend is running in demo
+    mode or snapshot mode.
+
+    In default demo mode (no env vars set), the response is::
+
+        {
+            "status": "ok",
+            "sample_data": true,
+            "service": "frontoffice-offseason-agent",
+            "data_mode": "demo",
+            "active_data_source": "demo",
+            "snapshot_id": null,
+            "snapshot_valid": null,
+            "snapshot_is_fixture": null,
+            "snapshot_type": null,
+            "snapshot_warnings": [],
+            "fallback_reason": null,
+            "strict_snapshot": false
+        }
     """
-    return {
+    # Lazy import so importing this module does not pull in the
+    # snapshot loader graph at import time.
+    from backend.app.services.data_source_resolver import (
+        build_data_source_metadata,
+    )
+
+    base = {
         "status": "ok",
         "sample_data": True,
         "service": "frontoffice-offseason-agent",
     }
+    # ``build_data_source_metadata`` may flip ``sample_data`` to False
+    # when a real snapshot is active, and may flip ``status`` to
+    # ``degraded`` in strict-snapshot failure mode. We merge the
+    # metadata on top of the base so the additive fields are always
+    # present, and the base fields are overridden only when the
+    # resolver has a more accurate value.
+    metadata = build_data_source_metadata()
+    active_status = metadata.get("fallback_reason")
+    # When the resolver reports a degraded state (strict snapshot
+    # failure), surface it in the top-level ``status``.
+    if metadata.get("data_mode") == "snapshot" and active_status is not None:
+        base["status"] = "degraded"
+    # When a real snapshot is active, sample_data is False.
+    if metadata.get("data_mode") == "snapshot" and active_status is None:
+        base["sample_data"] = False
+    base.update(metadata)
+    return base
 
 
 @app.get("/api/offseason/scenarios")

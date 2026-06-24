@@ -12,6 +12,7 @@ Submodules (M1+):
 - ``offseason_agent``           : task decomposition + tool orchestration.
 - ``snapshot_validator``        : (M8-B) snapshot bundle structural validation.
 - ``snapshot_loader``           : (M8-B) snapshot bundle loading + provenance.
+- ``data_source_resolver``      : (M8-C1/C2) DATA_MODE demo|snapshot resolver.
 
 M0 scope: package docstring only. No logic.
 """
@@ -27,4 +28,5 @@ __all__ = [
     "offseason_agent",
     "snapshot_validator",
     "snapshot_loader",
+    "data_source_resolver",
 ]
