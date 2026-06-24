@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
+import "./globals.css";
 
 /**
- * Root layout for the M6-B frontend build scaffold.
+ * Root layout for the frontend.
  *
- * Minimal html/body shell + metadata. No styling frameworks, no
+ * Imports globals.css (M6-C editorial sport-page aesthetic with
+ * CJK-friendly system font stack). No styling frameworks, no
  * providers, no API calls. The static viewer lives at /offseason.
  *
- * Milestone: M6-B.
+ * Milestone: M6-C (Chinese-first / bilingual patch).
  */
 
 export const metadata: Metadata = {
   title: "FrontOffice-Offseason-Agent",
   description:
-    "Deterministic NBA offseason front-office decision workflow demo (sample data, preview only).",
+    "NBA 休赛期前台决策演示：使用样例薪资、阵容、自由球员、规则检查和证据数据，生成可检查的签约 / 暂不行动预览。仅供预览，需要人工确认，不执行交易。",
 };
 
 export default function RootLayout({
@@ -21,18 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body
-        style={{
-          margin: 0,
-          fontFamily:
-            "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          background: "#ffffff",
-          color: "#111111",
-        }}
-      >
-        {children}
-      </body>
+    <html lang="zh">
+      <body>{children}</body>
     </html>
   );
 }

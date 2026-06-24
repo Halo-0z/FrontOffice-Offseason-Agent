@@ -1,44 +1,62 @@
-import Link from "next/link";
+"use client";
 
 /**
- * Root page for the M6-B frontend build scaffold.
+ * Root page (/) — M6-C bilingual (Chinese-first).
  *
  * Minimal entry point that links to the static offseason viewer at
- * /offseason. No API calls, no data fetching, no styling frameworks.
+ * /offseason. Default language is Chinese; a toggle in the top-right
+ * switches UI copy to English. No API calls, no data fetching, no
+ * styling frameworks.
  *
- * Milestone: M6-B.
+ * Milestone: M6-C (Chinese-first / bilingual patch).
  */
 
+import { useState } from "react";
+import Link from "next/link";
+import { copy, type Lang } from "../data/i18n";
+
 export default function HomePage() {
+  const [lang, setLang] = useState<Lang>("zh");
+
   return (
-    <main
-      style={{
-        padding: 24,
-        fontFamily: "system-ui, sans-serif",
-        maxWidth: 800,
-        margin: "0 auto",
-      }}
-    >
-      <h1 style={{ margin: 0 }}>FrontOffice-Offseason-Agent</h1>
-      <p style={{ color: "#666", marginTop: 8 }}>
-        Deterministic NBA offseason front-office decision workflow demo.
-        Sample data only. Preview only. Requires human approval.
-      </p>
-      <p style={{ marginTop: 16 }}>
-        <Link
-          href="/offseason"
-          style={{
-            color: "#2563eb",
-            textDecoration: "underline",
-            fontWeight: 600,
-          }}
+    <main className="home-page" lang={lang}>
+      {/* Language switcher */}
+      <div className="page-header-row">
+        <div
+          className="lang-switch"
+          role="group"
+          aria-label={copy.langSwitch.ariaLabel[lang]}
         >
-          Open offseason proposal viewer &rarr;
+          <button
+            type="button"
+            className={`lang-switch__btn ${lang === "zh" ? "lang-switch__btn--active" : ""}`}
+            onClick={() => setLang("zh")}
+            aria-pressed={lang === "zh"}
+          >
+            {copy.langSwitch.zh[lang]}
+          </button>
+          <button
+            type="button"
+            className={`lang-switch__btn ${lang === "en" ? "lang-switch__btn--active" : ""}`}
+            onClick={() => setLang("en")}
+            aria-pressed={lang === "en"}
+          >
+            {copy.langSwitch.en[lang]}
+          </button>
+        </div>
+      </div>
+
+      <h1 className="home-title">{copy.root.title[lang]}</h1>
+      <p className="home-subtitle">{copy.root.subtitle[lang]}</p>
+      <p className="home-description">{copy.root.description[lang]}</p>
+
+      <p style={{ margin: "var(--space-md) 0 0" }}>
+        <Link href="/offseason" className="home-cta">
+          {copy.root.cta[lang]}
         </Link>
       </p>
-      <p style={{ color: "#888", fontSize: 12, marginTop: 24 }}>
-        No LLM · No MCP · No external NBA API · No data mutation
-      </p>
+
+      <p className="home-footer">{copy.root.footer[lang]}</p>
     </main>
   );
 }
