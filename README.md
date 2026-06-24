@@ -101,8 +101,9 @@ success, non-zero on argument error or unknown team.
 ### Run the backend API (M7-A)
 
 ```powershell
-# Start the FastAPI dev server (read-only, sample data only)
-D:\anaconda\python.exe -m uvicorn backend.app.api:app --reload
+# Start the FastAPI dev server (read-only, sample data only).
+# Port 8010 is recommended on Windows to avoid conflicts on 8000.
+D:\anaconda\python.exe -m uvicorn backend.app.api:app --host 127.0.0.1 --port 8010
 ```
 
 API endpoints (sample / simulation data — not real NBA data, not a
@@ -110,10 +111,10 @@ prediction, not an approved transaction):
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `http://127.0.0.1:8000/api/health` | Liveness probe (`status: ok`, `sample_data: true`) |
-| GET | `http://127.0.0.1:8000/api/offseason/scenarios` | List the three demo scenarios |
-| POST | `http://127.0.0.1:8000/api/offseason/proposal-preview` | Generate a proposal preview (wraps `build_demo_payload`) |
-| GET | `http://127.0.0.1:8000/api/offseason/trade-preview-demo` | Fixed two-team trade preview (wraps `run_trade_preview_demo`) |
+| GET | `http://127.0.0.1:8010/api/health` | Liveness probe (`status: ok`, `sample_data: true`) |
+| GET | `http://127.0.0.1:8010/api/offseason/scenarios` | List the three demo scenarios |
+| POST | `http://127.0.0.1:8010/api/offseason/proposal-preview` | Generate a proposal preview (wraps `build_demo_payload`) |
+| GET | `http://127.0.0.1:8010/api/offseason/trade-preview-demo` | Fixed two-team trade preview with `team_a_post_trade` + `team_b_post_trade` (wraps `run_trade_preview_demo`) |
 
 API boundaries:
 
@@ -133,24 +134,21 @@ the local FastAPI backend. If the backend is unavailable, the page
 falls back to the static sample payloads and shows a clear banner.
 
 ```powershell
-# Terminal 1: start the backend API
+# Terminal 1: start the backend API on port 8010
 cd D:\FrontOffice-Offseason-Agent
-D:\anaconda\python.exe -m uvicorn backend.app.api:app --reload
+D:\anaconda\python.exe -m uvicorn backend.app.api:app --host 127.0.0.1 --port 8010
 
 # Terminal 2: start the frontend dev server
 cd D:\FrontOffice-Offseason-Agent\frontend
+$env:NEXT_PUBLIC_API_BASE_URL = "http://127.0.0.1:8010"
 npm run dev
 ```
 
 Open `http://localhost:3000/offseason` in a browser.
 
-Optional env (override the backend URL the frontend calls):
-
-```powershell
-# PowerShell, in the frontend terminal before `npm run dev`
-$env:NEXT_PUBLIC_API_BASE_URL = "http://127.0.0.1:8000"
-npm run dev
-```
+The `NEXT_PUBLIC_API_BASE_URL` env var tells the frontend which backend
+to call. It must be set before `npm run dev` because Next.js bakes
+`NEXT_PUBLIC_*` vars into the client bundle at build/dev start time.
 
 If the backend is not running, the page shows a yellow "backend API
 unavailable" banner and renders the local static sample payload instead.
@@ -241,14 +239,23 @@ The project enforces hard boundaries that are covered by
 | M5-B | Project polish / demo runbook / README packaging | done (tag `m5b-project-polish-demo-runbook`) |
 | M5-C | Docs consistency cleanup | done (tag `m5c-docs-consistency-cleanup`) |
 | M5-D | Final release snapshot / submission package | done (tag `m5d-final-release-snapshot`) |
-| M6-A | Static frontend proposal viewer | this milestone (static viewer, sample data) |
+| M6-A | Static frontend proposal viewer | done (tag `m6a-static-frontend-viewer`) |
+| M6-C | Chinese-first / bilingual UI patch | done (tag `m6c-bilingual-ui`) |
+| M6-D | Static trade preview scenario | done (tag `m6d-static-trade-preview`) |
+| M7-A | Backend API endpoint for Agent Console | done (tag `m7a-backend-api-endpoint`) |
+| M7-A2 | Backend dependency manifest | done (tag `m7a2-backend-dependency-manifest`) |
+| M7-B | Frontend API integration (API-first + fallback) | done (tag `m7b-frontend-api-integration`) |
+| M7-C | Full two-team trade preview (Team A + Team B) | done (tag `m7c-full-two-team-trade-preview`) |
+| M7-D | Final API console smoke runbook / release polish | this milestone (docs only) |
 
-> Status note: M0–M5-D are implemented as a deterministic local
-> backend with a CLI demo. M6-A adds a **static** frontend viewer
-> (sample data, no API calls). The project has **not** called any LLM,
-> has **not** connected to MCP, and has **not** connected to the real
-> NBA API or any live salary data source. All players / contracts /
-> free agents / evidence notes are demo / sample / simulation JSON.
+> Status note: M0–M7-C are implemented as a deterministic local
+> backend with a CLI demo, a FastAPI API, and an API-first Next.js
+> console with static fallback. M7-D is a release-polish / smoke
+> runbook milestone — it adds no features and changes no business
+> logic. The project has **not** called any LLM, has **not** connected
+> to MCP, and has **not** connected to the real NBA API or any live
+> salary data source. All players / contracts / free agents / evidence
+> notes are demo / sample / simulation JSON.
 
 ## Repository Layout
 
@@ -282,12 +289,13 @@ docs/              # architecture, agent-workflow, evaluation, demo-runbook, pro
   rumor integration.
 - **No official approval / execution system** — every output is a
   preview that requires a human to approve outside the system.
-- **CLI viewer + static frontend viewer** — the CLI script
+- **CLI viewer + API-first frontend console** — the CLI script
   (`backend/scripts/run_offseason_demo.py`) renders text / JSON briefs;
-  the M6-A static frontend viewer (`frontend/app/offseason/page.tsx`)
-  renders two demo scenarios (default recommendation + strict-budget
-  fallback) from a static payload. The frontend does **not** call any
-  backend API — it renders a snapshot of the CLI JSON output.
+  the M7-B `/offseason` page is an API-first Agent Console that calls
+  the local FastAPI backend and falls back to static sample payloads
+  when the backend is unavailable. The console supports three modes
+  (default recommendation, strict-budget HOLD, two-team trade preview)
+  in Chinese / English.
 - **No LLM / MCP integration** — natural-language polish and MCP tool
   hosting are deferred to later milestones.
 
@@ -301,6 +309,9 @@ docs/              # architecture, agent-workflow, evaluation, demo-runbook, pro
   CLI demo output checks.
 - [docs/demo-runbook.md](docs/demo-runbook.md) — step-by-step demo
   runbook with expected results and known Windows notes.
+- [docs/final-api-console-smoke-runbook.md](docs/final-api-console-smoke-runbook.md) —
+  final M7 API console smoke runbook (backend + frontend + fallback +
+  two-team trade preview).
 - [docs/project-summary.md](docs/project-summary.md) — short project
   summary for review / portfolio / introduction.
 - [docs/final-release-snapshot.md](docs/final-release-snapshot.md) —
