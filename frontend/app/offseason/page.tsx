@@ -1,76 +1,65 @@
 "use client";
 
 /**
- * Offseason Agent Console page — M7-B API-first three-mode console.
+ * Offseason Agent Console page -- two-column command center layout.
  *
- * Three scenario modes:
- *   1. "signing"  — $20M budget, default recommendation (SIGNING)
- *   2. "hold"     — $15M budget, strict-budget fallback (HOLD)
- *   3. "trade"    — two-team trade preview (PASS, post-trade depth chart)
+ * Layout: LEFT SIDEBAR (260px, nav + session) | RIGHT MAIN (3-column grid: input | decision+proposal | pipeline+indicators+metrics)
  *
- * API-first behavior (M7-B):
- *   - Clicking "generate" calls the local FastAPI backend (M7-A).
- *   - signing/hold -> POST /api/offseason/proposal-preview
- *   - trade        -> GET  /api/offseason/trade-preview-demo
- *   - On any API failure (network, timeout, non-2xx, invalid JSON),
- *     the page falls back to the existing static sample payloads and
- *     shows a clear "backend unavailable" banner.
- *   - The page never crashes on API failure.
+ * API-first behavior: clicking generate calls the local backend API first;
+ * if the backend is unavailable, falls back to local static sample payloads.
  *
- * Guardrails (unchanged from M6-D):
- *   - sample / simulation data only
- *   - no real NBA API, no LLM, no MCP
- *   - preview only — never approves or executes a transaction
- *   - no data writes
- *   - requires_human_approval is always true
- *
- * Default language is Chinese; a toggle in the top-right switches UI
- * copy to English.
- *
- * Milestone: M7-B (Frontend API Integration).
+ * Guardrails: unchanged.
+ * Language: Chinese default, toggle to English.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ProposalViewer from "../../components/ProposalViewer";
 import TradePreviewViewer from "../../components/TradePreviewViewer";
 import { scenarios } from "../../data/demoProposalPayload";
 import { demoTradePayload } from "../../data/demoTradePreviewPayload";
-import { copy, type Lang } from "../../data/i18n";
+import { copy, type Lang, formatSalary } from "../../data/i18n";
 import {
   ApiError,
+  API_BASE_URL,
   DEMO_PROPOSAL_REQUESTS,
   fetchProposalPreview,
   fetchTradePreviewDemo,
+  fetchHealth,
   type ProposalPreviewParams,
 } from "../../lib/apiClient";
 import type { DemoPayload } from "../../data/demoProposalPayload";
 import type { DemoTradePayload } from "../../data/demoTradePreviewPayload";
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 type Mode = "signing" | "hold" | "trade";
 type RunState = "idle" | "running" | "complete";
-/** Where the currently-displayed payload came from. */
-type DataSource = "api" | "fallback";
+type DataSource = "idle" | "api" | "fallback";
+
+interface HealthState {
+  online: boolean;
+  status: string;
+  sample: boolean;
+}
 
 interface RunResult {
   mode: Mode;
-  source: DataSource;
-  /** Present when source === "fallback" to explain why API failed. */
+  source: "api" | "fallback";
   fallbackReason?: string;
-  /** Proposal payload (signing/hold modes). */
   proposal: DemoPayload | null;
-  /** Trade payload (trade mode). */
   trade: DemoTradePayload | null;
 }
+
+// ---------------------------------------------------------------------------
+// Helpers (unchanged from original)
+// ---------------------------------------------------------------------------
 
 function modeToScenarioId(mode: Mode): string {
   return mode === "signing" ? "default" : "strict-budget";
 }
 
-/**
- * Look up the static fallback payload for a mode. Used when the API
- * call fails. The static payloads are never deleted — they are the
- * safety net that keeps the page working offline.
- */
 function getStaticFallback(mode: Mode): {
   proposal: DemoPayload | null;
   trade: DemoTradePayload | null;
@@ -83,7 +72,6 @@ function getStaticFallback(mode: Mode): {
   return { proposal: scenario?.payload ?? null, trade: null };
 }
 
-/** Human-readable reason for an ApiError, localized. */
 function explainApiError(err: ApiError, lang: Lang): string {
   const kind = err.kind;
   if (lang === "zh") {
@@ -114,24 +102,140 @@ function explainApiError(err: ApiError, lang: Lang): string {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Nav SVG icons
+// ---------------------------------------------------------------------------
+
+function NavIconHome() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  );
+}
+
+function NavIconConsole() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <rect width="7" height="9" x="3" y="3" rx="1" />
+      <rect width="7" height="5" x="14" y="3" rx="1" />
+      <rect width="7" height="9" x="14" y="12" rx="1" />
+      <rect width="7" height="5" x="3" y="16" rx="1" />
+    </svg>
+  );
+}
+
+function NavIconCapSheet() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="M12 3v18" />
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M3 9h18" />
+      <path d="M3 15h18" />
+    </svg>
+  );
+}
+
+function NavIconDepthChart() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+      <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
+      <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
+    </svg>
+  );
+}
+
+function NavIconSettings() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="console-pipeline-step__icon" viewBox="0 0 24 24" fill="none" stroke="var(--success-600)" strokeWidth="2.5">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+function CircleIcon() {
+  return (
+    <svg className="console-pipeline-step__icon" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" strokeWidth="2">
+      <circle cx="12" cy="12" r="10" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polygon points="6 3 20 12 6 21 6 3" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--brand-700)" strokeWidth="2">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export default function OffseasonPage() {
+  // -- State --
   const [lang, setLang] = useState<Lang>("zh");
   const [mode, setMode] = useState<Mode>("signing");
   const [runState, setRunState] = useState<RunState>("idle");
   const [result, setResult] = useState<RunResult | null>(null);
+  const [dataSource, setDataSource] = useState<DataSource>("idle");
+  const [healthState, setHealthState] = useState<HealthState>({
+    online: false,
+    status: "offline",
+    sample: true,
+  });
+  const [activeNav, setActiveNav] = useState<string>("console");
 
-  /**
-   * Generate handler: API-first with static fallback.
-   *
-   * Flow:
-   *   1. Enter "running" state.
-   *   2. Call the appropriate API endpoint for the current mode.
-   *   3a. On success: store the API payload with source="api".
-   *   3b. On any failure: store the static fallback payload with
-   *       source="fallback" and a human-readable reason. The page
-   *       never crashes.
-   *   4. Enter "complete" state.
-   */
+  // -- Health check on mount --
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const health = await fetchHealth();
+        if (!cancelled) {
+          setHealthState({ online: true, status: health.status, sample: health.sample_data });
+          setDataSource("idle");
+        }
+      } catch {
+        if (!cancelled) {
+          setHealthState({ online: false, status: "offline", sample: true });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // -- Generate proposal (API first, fallback to sample) --
   const handleGenerate = useCallback(async () => {
     if (runState === "running") return;
     setRunState("running");
@@ -151,9 +255,8 @@ export default function OffseasonPage() {
         const proposal = await fetchProposalPreview(params);
         apiResult = { mode: currentMode, source: "api", proposal, trade: null };
       }
+      setDataSource("api");
     } catch (err) {
-      // Fallback path: API failed for any reason. Use the static
-      // payload so the page keeps working. Never rethrow.
       const fallback = getStaticFallback(currentMode);
       const reason =
         err instanceof ApiError
@@ -168,28 +271,43 @@ export default function OffseasonPage() {
         proposal: fallback.proposal,
         trade: fallback.trade,
       };
+      setDataSource("fallback");
     }
 
     setResult(apiResult);
     setRunState("complete");
   }, [runState, mode, lang]);
 
-  // Reset to idle when the user changes the mode so they re-generate.
-  // This prevents showing a stale result from a different mode.
+  // -- Reset when mode changes --
   useEffect(() => {
     if (result !== null && result.mode !== mode) {
       setRunState("idle");
       setResult(null);
+      setDataSource("idle");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
+  // -- Copy references --
   const c = copy.console;
   const cm = copy.consoleModes;
   const ds = copy.dataSource;
-  const isHold = result?.mode !== "trade" && result?.proposal?.proposal.status === "NO_ACTION";
+  const db = copy.dashboard;
+  const cs = copy.consoleShell;
 
-  // Progress steps differ slightly for trade mode.
+  // -- Derived values --
+  const isTrade = result?.mode === "trade";
+  const isHold = !isTrade && result?.proposal?.proposal.status === "NO_ACTION";
+
+  const completedSteps =
+    runState === "complete" && result
+      ? isTrade
+        ? result.trade?.preview.validation_result.issues.length === 0
+          ? 7
+          : 5
+        : 7
+      : 0;
+
   const steps =
     result?.mode === "trade"
       ? [
@@ -203,258 +321,546 @@ export default function OffseasonPage() {
         ]
       : c.steps;
 
+  // -- Nav items with icons --
+  const navItems = [
+    { id: "home", label: cs.navHome, icon: <NavIconHome /> },
+    { id: "console", label: cs.navConsole, icon: <NavIconConsole /> },
+    { id: "capsheet", label: cs.navCapSheet, icon: <NavIconCapSheet /> },
+    { id: "depthchart", label: cs.navDepthChart, icon: <NavIconDepthChart /> },
+    { id: "settings", label: cs.navSettings, icon: <NavIconSettings /> },
+  ];
+
+  // -- Modes array --
+  const modes = [
+    { id: "signing" as Mode, label: cm.signing.label, amount: "$20M" },
+    { id: "hold" as Mode, label: cm.hold.label, amount: "$15M" },
+    { id: "trade" as Mode, label: cm.trade.label, amount: lang === "zh" ? "模拟" : "Sim" },
+  ];
+
+  // -- Mode label for session card --
+  const modeLabel =
+    mode === "trade"
+      ? cm.trade.label[lang]
+      : mode === "hold"
+        ? cm.hold.label[lang]
+        : cm.signing.label[lang];
+
+  // -- Budget label for session card --
+  const budgetLabel = mode === "trade" ? "\u2014" : mode === "hold" ? "$15M" : "$20M";
+
+  // -- Status label for session card --
+  const statusLabel =
+    runState === "running"
+      ? cs.statusRunning[lang]
+      : runState === "complete"
+        ? cs.statusComplete[lang]
+        : cs.statusIdle[lang];
+
+  // -- Derived values for column 2 --
+  const firstAction = result?.proposal?.actions[0];
+  const fitScore = firstAction?.fit_score ?? 0;
+  const fitScoreDisplay = (fitScore * 100).toFixed(0);
+  const capImpactPercent = firstAction?.salary
+    ? Math.min(100, Math.round((firstAction.salary / 20000000) * 100))
+    : 0;
+  const riskLevel = firstAction
+    ? result?.proposal?.proposal.risks.some((r: { level: string }) => r.level === "HIGH")
+      ? "HIGH"
+      : result?.proposal?.proposal.risks.some((r: { level: string }) => r.level === "MEDIUM")
+        ? "MEDIUM"
+        : "LOW"
+    : "\u2014";
+
+  // -- Indicator rows --
+  const indicatorRows =
+    runState === "complete" && result
+      ? [
+          {
+            label: { zh: "提案状态", en: "Proposal" },
+            value: { zh: result.proposal?.proposal.status ?? "\u2014", en: result.proposal?.proposal.status ?? "\u2014" },
+            ok: ["RECOMMENDED", "PASS"].includes(result.proposal?.proposal.status ?? ""),
+          },
+          {
+            label: { zh: "评估状态", en: "Evaluation" },
+            value: { zh: result.proposal?.evaluation.status ?? "\u2014", en: result.proposal?.evaluation.status ?? "\u2014" },
+            ok: result.proposal?.evaluation.status === "PASS",
+          },
+          {
+            label: { zh: "人工确认", en: "Approval" },
+            value: { zh: result.proposal?.proposal.requires_human_approval ? "需要" : "不需要", en: result.proposal?.proposal.requires_human_approval ? "Required" : "Not required" },
+            ok: !result.proposal?.proposal.requires_human_approval,
+          },
+          {
+            label: { zh: "数据类型", en: "Data" },
+            value: { zh: "样例数据", en: "Demo" },
+            ok: false,
+          },
+          {
+            label: { zh: "NBA 真实", en: "Real NBA" },
+            value: { zh: "否", en: "No" },
+            ok: false,
+          },
+        ]
+      : [];
+
   return (
-    <main className="page" lang={lang}>
-      {/* Language switcher */}
-      <div className="page-header-row">
-        <div
-          className="lang-switch"
-          role="group"
-          aria-label={copy.langSwitch.ariaLabel[lang]}
-        >
-          <button
-            type="button"
-            className={`lang-switch__btn ${lang === "zh" ? "lang-switch__btn--active" : ""}`}
-            onClick={() => setLang("zh")}
-            aria-pressed={lang === "zh"}
-          >
-            {copy.langSwitch.zh[lang]}
-          </button>
-          <button
-            type="button"
-            className={`lang-switch__btn ${lang === "en" ? "lang-switch__btn--active" : ""}`}
-            onClick={() => setLang("en")}
-            aria-pressed={lang === "en"}
-          >
-            {copy.langSwitch.en[lang]}
-          </button>
-        </div>
-      </div>
-
-      {/* Hero */}
-      <header className="hero">
-        <p className="hero-eyebrow">{copy.hero.eyebrow[lang]}</p>
-        <h1 className="hero-title">{copy.hero.title[lang]}</h1>
-        <p className="hero-lede">{copy.hero.lede[lang]}</p>
-        <div className="hero-badges">
-          <span className="badge badge--warn">{copy.hero.badges.sample[lang]}</span>
-          <span className="badge badge--info">{copy.hero.badges.preview[lang]}</span>
-          <span className="badge badge--bad">{copy.hero.badges.approval[lang]}</span>
-          <span className="badge">{copy.hero.badges.noPrediction[lang]}</span>
-          <span className="badge">{copy.hero.badges.noExecution[lang]}</span>
-          <span className="badge badge--accent">{copy.hero.badges.noExternal[lang]}</span>
-        </div>
-      </header>
-
-      {/* Approval boundary banner */}
-      <div className="approval-banner">
-        <strong>{copy.approvalBanner.strong[lang]}</strong>{" "}
-        {copy.approvalBanner.body[lang]}
-      </div>
-
-      {/* Agent input panel */}
-      <section className="console-panel" aria-label={c.inputTitle[lang]}>
-        <h2 className="console-panel__title">{c.inputTitle[lang]}</h2>
-        <p className="console-panel__hint">{c.inputHint[lang]}</p>
-
-        <div className="console-fields">
-          <div>
-            <p className="console-field__label">{c.fieldTeam[lang]}</p>
-            <p className="console-field__value">{c.teamDemAtl[lang]}</p>
-          </div>
-          <div>
-            <p className="console-field__label">{c.fieldObjective[lang]}</p>
-            <p className="console-field__value">{c.objectiveValue[lang]}</p>
-          </div>
-          <div>
-            <p className="console-field__label">{c.fieldPosition[lang]}</p>
-            <p className="console-field__value">{c.positionValue[lang]}</p>
-          </div>
-          <div>
-            <p className="console-field__label">{c.fieldCandidates[lang]}</p>
-            <p className="console-field__value">{c.candidatesValue[lang]}</p>
-          </div>
-          <div>
-            <p className="console-field__label">{c.fieldEvidenceQuery[lang]}</p>
-            <p className="console-field__value">{c.evidenceQueryValue[lang]}</p>
-          </div>
+    <div className="console-shell" lang={lang}>
+      {/* ================================================================ */}
+      {/* LEFT SIDEBAR (260px)                                             */}
+      {/* ================================================================ */}
+      <aside className="console-sidebar">
+        {/* Brand: FO mark + "FrontOffice" */}
+        <div className="sidebar-brand">
+          <div className="sidebar-brand__mark">FO</div>
+          <span className="sidebar-brand__name">FrontOffice</span>
+          <div className="sidebar-brand__divider" />
         </div>
 
-        {/* Mode radio cards (three modes) */}
-        <p className="console-field__label" style={{ marginBottom: 6 }}>
-          {lang === "zh" ? "场景模式" : "Scenario mode"}
-        </p>
-        <div className="mode-cards" role="radiogroup" aria-label={lang === "zh" ? "场景模式" : "Scenario mode"}>
-          <label
-            className={`mode-card ${mode === "signing" ? "mode-card--selected" : ""}`}
-          >
-            <input
-              type="radio"
-              name="mode"
-              value="signing"
-              checked={mode === "signing"}
-              onChange={() => setMode("signing")}
-            />
-            <p className="mode-card__label">{cm.signing.label[lang]}</p>
-            <p className="mode-card__desc">{cm.signing.desc[lang]}</p>
-          </label>
-          <label
-            className={`mode-card ${mode === "hold" ? "mode-card--selected" : ""}`}
-          >
-            <input
-              type="radio"
-              name="mode"
-              value="hold"
-              checked={mode === "hold"}
-              onChange={() => setMode("hold")}
-            />
-            <p className="mode-card__label">{cm.hold.label[lang]}</p>
-            <p className="mode-card__desc">{cm.hold.desc[lang]}</p>
-          </label>
-          <label
-            className={`mode-card ${mode === "trade" ? "mode-card--selected" : ""}`}
-          >
-            <input
-              type="radio"
-              name="mode"
-              value="trade"
-              checked={mode === "trade"}
-              onChange={() => setMode("trade")}
-            />
-            <p className="mode-card__label">{cm.trade.label[lang]}</p>
-            <p className="mode-card__desc">{cm.trade.desc[lang]}</p>
-          </label>
-        </div>
+        {/* Navigation */}
+        <nav className="sidebar-nav">
+          {navItems.map((item, idx) => (
+            <React.Fragment key={item.id}>
+              <button
+                type="button"
+                className={`sidebar-nav__item ${activeNav === item.id ? "sidebar-nav__item--active" : ""}`}
+                onClick={() => setActiveNav(item.id)}
+              >
+                {item.icon}
+                {item.label[lang]}
+              </button>
+              {idx === 3 && <div className="sidebar-nav__separator" />}
+            </React.Fragment>
+          ))}
+        </nav>
 
-        {/* Generate button + run state */}
-        <div>
-          <button
-            type="button"
-            className="generate-btn"
-            onClick={handleGenerate}
-            disabled={runState === "running"}
-          >
-            {runState === "complete"
-              ? c.regenerateBtn[lang]
-              : c.generateBtn[lang]}
-          </button>
-          <span
-            className={`console-state console-state--${runState}`}
-            aria-live="polite"
-          >
-            <span className="console-state__dot" aria-hidden="true" />
-            <span>
-              {c.stateLabel[lang]}:{" "}
-              {runState === "idle"
-                ? c.stateIdle[lang]
-                : runState === "running"
-                  ? ds.loadingApi[lang]
-                  : c.stateComplete[lang]}
-            </span>
-          </span>
-        </div>
-      </section>
-
-      {/* Progress timeline (only visible after first generate) */}
-      {runState !== "idle" && (
-        <section className="section" aria-label={c.progressTitle[lang]}>
-          <h2 className="section__title">{c.progressTitle[lang]}</h2>
-          <p className="section__hint">{c.progressHint[lang]}</p>
-          <ol className="progress-timeline">
-            {steps.map((step, i) => {
-              const stepState =
-                runState === "complete"
-                  ? "done"
-                  : runState === "running"
-                    ? i < steps.length - 1
-                      ? "done"
-                      : "running"
-                    : "";
-              return (
-                <li
-                  key={i}
-                  className={`progress-step ${stepState ? `progress-step--${stepState}` : ""}`}
+        {/* Session context card */}
+        <div className="sidebar-session">
+          <div className="sidebar-session__card">
+            <span className="sidebar-session__title">{cs.sessionTitle[lang]}</span>
+            <div className="sidebar-session__rows">
+              <div className="sidebar-session__row">
+                <span className="sidebar-session__label">{cs.sessionTeam[lang]}</span>
+                <span className="sidebar-session__value">DEM (亚特兰大)</span>
+              </div>
+              <div className="sidebar-session__row">
+                <span className="sidebar-session__label">{cs.sessionMode[lang]}</span>
+                <span className="sidebar-session__value">{modeLabel}</span>
+              </div>
+              <div className="sidebar-session__row">
+                <span className="sidebar-session__label">{cs.sessionBudget[lang]}</span>
+                <span className="sidebar-session__value">{budgetLabel}</span>
+              </div>
+              <div className="sidebar-session__row">
+                <span className={`console-status-dot console-status-dot--${runState}`} />
+                <span
+                  className="sidebar-session__value"
+                  style={{
+                    color:
+                      runState === "complete"
+                        ? "var(--success-600)"
+                        : runState === "running"
+                          ? "var(--warn-500)"
+                          : "var(--muted-foreground)",
+                  }}
                 >
-                  {step[lang]}
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-      )}
-
-      {/* Data source indicator (only after a run completes) */}
-      {runState === "complete" && result && (
-        <div
-          className={`data-source-badge data-source-badge--${result.source}`}
-          role="status"
-        >
-          {result.source === "api" ? ds.apiLabel[lang] : ds.fallbackLabel[lang]}
+                  {statusLabel}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* Fallback banner (only when API failed and we fell back) */}
-      {runState === "complete" && result?.source === "fallback" && (
-        <div className="fallback-banner" role="alert">
-          <strong>{ds.fallbackBanner[lang]}</strong>
-          {result.fallbackReason && (
-            <p className="fallback-banner__reason">
-              {ds.fallbackReason[lang]}
-              {result.fallbackReason}
-            </p>
+        {/* Footer: lang switch + version */}
+        <div className="sidebar-footer">
+          <div className="lang-switch" role="group" aria-label={copy.langSwitch.ariaLabel[lang]}>
+            <button
+              type="button"
+              className={`lang-switch__btn ${lang === "zh" ? "lang-switch__btn--active" : ""}`}
+              onClick={() => setLang("zh")}
+              aria-pressed={lang === "zh"}
+            >
+              {copy.langSwitch.zh[lang]}
+            </button>
+            <button
+              type="button"
+              className={`lang-switch__btn ${lang === "en" ? "lang-switch__btn--active" : ""}`}
+              onClick={() => setLang("en")}
+              aria-pressed={lang === "en"}
+            >
+              {copy.langSwitch.en[lang]}
+            </button>
+          </div>
+          <span className="sidebar-version">v1.0 样例</span>
+        </div>
+      </aside>
+
+      {/* ================================================================ */}
+      {/* RIGHT MAIN AREA                                                  */}
+      {/* ================================================================ */}
+      <main className="console-main">
+        <div className="console-main__inner">
+          {/* ROW 1: Header strip */}
+          <div className="console-header">
+            <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+              <span className="console-header__eyebrow">{cs.workspaceEyebrow[lang]}</span>
+              <h1 className="console-header__title">{cs.workspaceTitle[lang]}</h1>
+            </div>
+            <span className="console-read-only-badge">
+              <ShieldIcon />
+              <span>{cs.readOnlyBadge[lang]}</span>
+            </span>
+          </div>
+
+          {/* Fallback banner (only when API failed) */}
+          {runState === "complete" && result?.source === "fallback" && (
+            <div className="fallback-banner" role="alert">
+              <strong>{ds.fallbackBanner[lang]}</strong>
+              {result.fallbackReason && <p>{result.fallbackReason}</p>}
+            </div>
           )}
+
+          {/* ROW 2: Three-column grid */}
+          <div className="console-grid">
+            {/* COLUMN 1: Input configuration */}
+            <section className="console-input-card">
+              <div className="console-input-card__header">
+                <h2 className="console-input-card__title">{c.inputTitle[lang]}</h2>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--muted-foreground)" }}>配置面板</span>
+              </div>
+              <div className="console-input-card__body">
+                {/* 2x2 grid */}
+                <div className="console-field-grid">
+                  <div className="console-field">
+                    <label className="console-field__label">{c.fieldTeam[lang]}</label>
+                    <div className="console-field__input">{c.teamDemAtl[lang]}</div>
+                  </div>
+                  <div className="console-field">
+                    <label className="console-field__label">{c.fieldObjective[lang]}</label>
+                    <div className="console-field__input">{c.objectiveValue[lang]}</div>
+                  </div>
+                  <div className="console-field">
+                    <label className="console-field__label">{c.fieldPosition[lang]}</label>
+                    <div className="console-field__input">{c.positionValue[lang]}</div>
+                  </div>
+                  <div className="console-field">
+                    <label className="console-field__label">{c.fieldCandidates[lang]}</label>
+                    <div className="console-field__input">{c.candidatesValue[lang]}</div>
+                  </div>
+                </div>
+                {/* Evidence query */}
+                <div className="console-field">
+                  <label className="console-field__label">{c.fieldEvidenceQuery[lang]}</label>
+                  <div className="console-field__input">{c.evidenceQueryValue[lang]}</div>
+                </div>
+                {/* 3 mode cards -- compact, no descriptions */}
+                <div className="console-mode-grid">
+                  {modes.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`console-mode-card ${mode === m.id ? "console-mode-card--active" : ""}`}
+                      onClick={() => {
+                        setMode(m.id as Mode);
+                        setRunState("idle");
+                        setResult(null);
+                      }}
+                    >
+                      <span className="console-mode-card__label">{m.label[lang]}</span>
+                      <span className="console-mode-card__amount">{m.amount}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Generate button */}
+                <div className="console-generate-row">
+                  <button
+                    type="button"
+                    className="console-generate-btn"
+                    onClick={handleGenerate}
+                    disabled={runState === "running"}
+                  >
+                    <PlayIcon />
+                    {runState === "complete" ? c.regenerateBtn[lang] : c.generateBtn[lang]}
+                  </button>
+                  <span className={`console-status-dot console-status-dot--${runState}`} />
+                  <span className="console-status-text">
+                    {runState === "idle"
+                      ? c.stateIdle[lang]
+                      : runState === "running"
+                        ? ds.loadingApi[lang]
+                        : c.stateComplete[lang]}
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* COLUMN 2: Decision summary + Proposal detail */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", minWidth: 0 }}>
+              {runState === "complete" && result ? (
+                isTrade && result.trade ? (
+                  <>
+                    {/* Trade matchup strip */}
+                    <div className="console-matchup-strip">
+                      <span className="console-matchup-strip__team">{result.trade.trade_transaction.team_a_id}</span>
+                      <span className="console-matchup-strip__arrow">&#8644;</span>
+                      <span className="console-matchup-strip__team">{result.trade.trade_transaction.team_b_id}</span>
+                    </div>
+                    {/* Trade details -- render TradePreviewViewer in console mode */}
+                    <div className="console-proposal-card" style={{ flex: 1 }}>
+                      <TradePreviewViewer payload={result.trade} lang={lang} variant="console" />
+                    </div>
+                  </>
+                ) : result.proposal ? (
+                  <>
+                    {/* Decision summary -- dynamic from payload */}
+                    <div className={`console-decision-summary ${isHold ? "console-decision-summary--hold" : ""}`}>
+                      <p className="console-decision-summary__headline">
+                        {isHold
+                          ? db.decisionSummaryHold[lang]
+                          : (() => {
+                              const act = result.proposal!.actions[0];
+                              if (act?.player_name && act?.salary != null) {
+                                return lang === "zh"
+                                  ? `推荐签约：${act.player_name}，${formatSalary(act.salary, lang)}/年`
+                                  : `Recommended signing: ${act.player_name}, ${formatSalary(act.salary, lang)}/yr`;
+                              }
+                              return db.decisionSummarySigning[lang];
+                            })()}
+                      </p>
+                      <p className="console-decision-summary__body">
+                        {isHold ? db.decisionSummaryHoldBody[lang] : db.decisionSummarySigningBody[lang]}
+                      </p>
+                    </div>
+
+                    {/* Proposal detail card -- compact */}
+                    <div className="console-proposal-card">
+                      <div className="console-proposal-card__header">
+                        <h2 className="console-proposal-card__title">
+                          {lang === "zh" ? "签约方案详情" : "Signing Details"}
+                        </h2>
+                        <span className="console-proposal-card__badge">
+                          {firstAction?.action_type ?? "SIGNING"}
+                        </span>
+                      </div>
+                      <div className="console-proposal-card__body">
+                        {/* Player row */}
+                        <div className="console-player-row">
+                          <div className="console-player-avatar">
+                            {firstAction?.position?.charAt(0) ?? "C"}
+                          </div>
+                          <div className="console-player-info">
+                            <span className="console-player-name">
+                              {firstAction?.player_name ?? "\u2014"}
+                            </span>
+                            <span className="console-player-meta">
+                              {firstAction?.position ?? "\u2014"} &middot;{" "}
+                              {formatSalary(firstAction?.salary ?? null, lang)}/yr &middot;{" "}
+                              {firstAction?.years ?? "\u2014"}yr
+                            </span>
+                          </div>
+                        </div>
+                        {/* 3x2 metric grid */}
+                        <div className="console-metric-grid">
+                          <div className="console-metric-cell">
+                            <span className="console-metric-cell__label">fit_score</span>
+                            <span className="console-metric-cell__value console-metric-cell__value--ok">
+                              {firstAction?.fit_score?.toFixed(2) ?? "\u2014"}
+                            </span>
+                          </div>
+                          <div className="console-metric-cell">
+                            <span className="console-metric-cell__label">matched_need</span>
+                            <span className="console-metric-cell__value">
+                              {firstAction?.matched_need ?? "\u2014"}
+                            </span>
+                          </div>
+                          <div className="console-metric-cell">
+                            <span className="console-metric-cell__label">cap_impact</span>
+                            <span className="console-metric-cell__value">{capImpactPercent}%</span>
+                          </div>
+                          <div className="console-metric-cell">
+                            <span className="console-metric-cell__label">risk_level</span>
+                            <span className="console-metric-cell__value console-metric-cell__value--ok">
+                              {riskLevel}
+                            </span>
+                          </div>
+                          <div className="console-metric-cell">
+                            <span className="console-metric-cell__label">salary_rules</span>
+                            <span className="console-metric-cell__value console-metric-cell__value--ok">
+                              {firstAction?.validation_status ?? "\u2014"}
+                            </span>
+                          </div>
+                          <div className="console-metric-cell">
+                            <span className="console-metric-cell__label">evidence</span>
+                            <span className="console-metric-cell__value">
+                              {firstAction?.evidence_ids?.length ?? 0} src
+                            </span>
+                          </div>
+                        </div>
+                        {/* Collapsible audit details -- renders full ProposalViewer inside */}
+                        <details className="console-audit-toggle">
+                          <summary>
+                            <ChevronDownIcon />
+                            {lang === "zh" ? "查看完整审计详情" : "View full audit details"}
+                          </summary>
+                          <ProposalViewer payload={result.proposal} lang={lang} variant="console" />
+                        </details>
+                      </div>
+                    </div>
+                  </>
+                ) : null
+              ) : (
+                /* Empty state -- centered in column 2 */
+                <div className="console-empty">
+                  <p>{db.emptyState[lang]}</p>
+                </div>
+              )}
+            </div>
+
+            {/* COLUMN 3: Pipeline + Indicators + Key metrics */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", minWidth: 0 }}>
+              {/* Data source health */}
+              <div className="console-health-card">
+                <span
+                  className={`console-health-card__dot ${healthState.online ? "console-health-card__dot--online" : "console-health-card__dot--offline"}`}
+                />
+                <span>
+                  {healthState.online ? db.backendOnline[lang] : db.backendOffline[lang]}
+                </span>
+              </div>
+              <div style={{ fontSize: 10, color: "var(--muted-foreground)", fontFamily: "var(--font-mono)", paddingLeft: 4 }}>
+                {lang === "zh" ? "API" : "API"}: {API_BASE_URL}
+              </div>
+
+              {/* Pipeline */}
+              <div className="console-pipeline-card">
+                <p className="console-pipeline-card__title">{cs.inspectorPipeline[lang]}</p>
+                <div className="console-pipeline-card__list">
+                  {steps.map((step, i) => (
+                    <div
+                      key={i}
+                      className={`console-pipeline-step ${i < completedSteps ? "console-pipeline-step--done" : ""}`}
+                    >
+                      {i < completedSteps ? <CheckIcon /> : <CircleIcon />}
+                      <span className="console-pipeline-step__label">{step[lang]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Indicators -- only when complete */}
+              {runState === "complete" && result && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {indicatorRows.map((row, i) => (
+                    <div
+                      key={i}
+                      className={`console-indicator-row ${row.ok ? "console-indicator-row--ok" : "console-indicator-row--warn"}`}
+                    >
+                      <span className="console-indicator-row__label">{row.label[lang]}</span>
+                      <span
+                        className={`console-indicator-row__value ${row.ok ? "console-indicator-row__value--ok" : "console-indicator-row__value--warn"}`}
+                      >
+                        {row.value[lang]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Key metrics -- only when complete and signing/hold mode */}
+              {runState === "complete" && result?.proposal && (
+                <div className="console-key-metrics">
+                  <p className="console-key-metrics__title">{cs.inspectorKeyMetrics[lang]}</p>
+                  <div className="console-key-metrics__body">
+                    {/* Fit score large */}
+                    <div className="console-fit-score">
+                      <span className="console-fit-score__label">fit_score</span>
+                      <span className="console-fit-score__value">{fitScoreDisplay}</span>
+                    </div>
+                    {/* Cap impact bar */}
+                    <div className="console-cap-bar">
+                      <div className="console-cap-bar__header">
+                        <span className="console-cap-bar__label">cap_impact</span>
+                        <span className="console-cap-bar__value">{capImpactPercent}%</span>
+                      </div>
+                      <div className="console-cap-bar__track">
+                        <div
+                          className="console-cap-bar__fill"
+                          style={{ width: `${Math.min(capImpactPercent, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    {/* Risk badge */}
+                    <div className="console-risk-badge">
+                      <span
+                        className="console-risk-badge__label"
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 9,
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          color: "var(--muted-foreground)",
+                        }}
+                      >
+                        risk_level
+                      </span>
+                      <span
+                        className={`console-risk-badge__pill console-risk-badge__pill--${riskLevel.toLowerCase()}`}
+                      >
+                        {riskLevel}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Trade-specific key metrics */}
+              {runState === "complete" && result?.trade && (
+                <div className="console-key-metrics">
+                  <p className="console-key-metrics__title">{cs.inspectorKeyMetrics[lang]}</p>
+                  <div className="console-key-metrics__body">
+                    <div className="console-indicator-row console-indicator-row--ok">
+                      <span className="console-indicator-row__label">validation</span>
+                      <span className="console-indicator-row__value console-indicator-row__value--ok">PASS</span>
+                    </div>
+                    <div className="console-indicator-row console-indicator-row--ok">
+                      <span className="console-indicator-row__label">salary_match</span>
+                      <span className="console-indicator-row__value console-indicator-row__value--ok">PASS</span>
+                    </div>
+                    <div className="console-indicator-row console-indicator-row--warn">
+                      <span className="console-indicator-row__label">human_approval</span>
+                      <span className="console-indicator-row__value console-indicator-row__value--warn">
+                        {lang === "zh" ? "需要" : "Required"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Demo data warning */}
+              <div style={{ fontSize: 10, color: "var(--muted-foreground)", lineHeight: 1.4, padding: "4px 0" }}>
+                {lang === "zh"
+                  ? "这些球队、球员、薪资和交易结果是 sample/demo 数据，不代表真实 NBA 数据。"
+                  : "All data is sample/demo, not real NBA data."}
+              </div>
+            </div>
+          </div>
+          {/* end console-grid */}
+
+          {/* Footer */}
+          <footer style={{ padding: "6px 0 0", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+            <p
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-serif)",
+                fontSize: 10,
+                lineHeight: 1.3,
+                color: "var(--muted-foreground)",
+                textAlign: "center",
+              }}
+            >
+              FrontOffice Agent 仅供研究与教育用途。所有数据为样例数据。
+            </p>
+          </footer>
         </div>
-      )}
-
-      {/* Output region */}
-      {runState === "complete" && result?.mode === "trade" && result.trade ? (
-        <section className="output-region" aria-label={copy.trade.outputHeadline[lang]}>
-          <h2 className="section__title">{copy.console.outputTitle[lang]}</h2>
-          <p className="output-headline">{copy.trade.outputHeadline[lang]}</p>
-          <TradePreviewViewer payload={result.trade} lang={lang} />
-        </section>
-      ) : runState === "complete" && result?.proposal ? (
-        <section className="output-region" aria-label={c.outputTitle[lang]}>
-          <h2 className="section__title">{c.outputTitle[lang]}</h2>
-          <p
-            className={`output-headline ${isHold ? "output-headline--hold" : ""}`}
-          >
-            {isHold ? c.outputStrict[lang] : c.outputDefault[lang]}
-          </p>
-          <ProposalViewer
-            payload={result.proposal}
-            lang={lang}
-            variant="console"
-          />
-        </section>
-      ) : (
-        <section className="output-region">
-          <p className="console-empty">
-            {lang === "zh"
-              ? "选择场景模式后点击「生成休赛期方案」查看系统建议。"
-              : "Pick a scenario mode and click \"Generate offseason plan\" to see the system recommendation."}
-          </p>
-        </section>
-      )}
-
-      {/* Footer */}
-      <footer className="footer">
-        <p>{copy.footer.body[lang]}</p>
-        <p>
-          {copy.footer.payloadSource[lang]}
-          <code>
-            python backend/scripts/run_offseason_demo.py --format json
-          </code>
-          {"  ·  "}
-          <code>
-            python backend/scripts/run_trade_preview_demo.py --format json
-          </code>
-          {"  ·  "}
-          <code>
-            uvicorn backend.app.api:app --reload
-          </code>
-        </p>
-      </footer>
-    </main>
+      </main>
+    </div>
   );
 }

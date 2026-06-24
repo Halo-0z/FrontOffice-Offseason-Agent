@@ -38,6 +38,7 @@ import { copy, type Lang, formatSalary, formatBool } from "../data/i18n";
 interface TradePreviewViewerProps {
   payload: DemoTradePayload;
   lang: Lang;
+  variant?: "report" | "console";
 }
 
 // ---- Helpers ----
@@ -449,11 +450,12 @@ function TradeAuditSections({ payload, lang }: { payload: DemoTradePayload; lang
 
 // ---- Main component ----
 
-export default function TradePreviewViewer({ payload, lang }: TradePreviewViewerProps) {
+export default function TradePreviewViewer({ payload, lang, variant = "report" }: TradePreviewViewerProps) {
   const t = copy.trade;
   const tx = payload.trade_transaction;
   const vr = payload.preview.validation_result;
   const sm = payload.salary_matching;
+  const isConsole = variant === "console";
 
   const statusBadgeClass =
     vr.status === "PASS" ? "badge--ok" : vr.status === "WARNING" ? "badge--warn" : "badge--bad";
@@ -467,63 +469,71 @@ export default function TradePreviewViewer({ payload, lang }: TradePreviewViewer
 
   return (
     <div lang={lang}>
-      {/* Approval boundary banner */}
-      <div className="approval-banner">
-        <strong>{copy.approvalBanner.strong[lang]}</strong>{" "}
-        {t.boundary[lang]}
-      </div>
+      {/* Approval boundary banner — suppressed in console mode (page-level safety-bar covers this) */}
+      {!isConsole && (
+        <div className="approval-banner">
+          <strong>{copy.approvalBanner.strong[lang]}</strong>{" "}
+          {t.boundary[lang]}
+        </div>
+      )}
 
-      {/* Summary block */}
-      <div className="summary-block">
-        <p className="summary-headline">{t.outputHeadline[lang]}</p>
-        <p className="summary-body">{outputLine}</p>
-      </div>
+      {/* Summary block — suppressed in console mode (page-level decision-summary covers this) */}
+      {!isConsole && (
+        <div className="summary-block">
+          <p className="summary-headline">{t.outputHeadline[lang]}</p>
+          <p className="summary-body">{outputLine}</p>
+        </div>
+      )}
 
-      {/* Status cards */}
-      <div className="status-grid">
-        <div className="status-card">
-          <p className="status-card__label">{t.validationStatus[lang]}</p>
-          <p className={`status-card__value ${statusClass(vr.status)}`}>{vr.status}</p>
-          <p className="status-card__explain" lang={lang}>{outputLine}</p>
-        </div>
-        <div className="status-card">
-          <p className="status-card__label">{t.isValid[lang]}</p>
-          <p className={`status-card__value ${vr.is_valid ? "status-card__value--ok" : "status-card__value--bad"}`}>
-            {formatBool(vr.is_valid, lang)}
-          </p>
-          <p className="status-card__explain" lang={lang}>
-            {vr.is_valid
-              ? copy.statusCards.evaluationExplain.PASS[lang]
-              : copy.statusCards.evaluationExplain.FAIL[lang]}
-          </p>
-        </div>
-        <div className="status-card">
-          <p className="status-card__label">{copy.statusCards.approvalLabel[lang]}</p>
-          <p className="status-card__value status-card__value--warn">{formatBool(payload.requires_human_approval, lang)}</p>
-          <p className="status-card__explain" lang={lang}>{copy.statusCards.approvalYes[lang]}</p>
-        </div>
-        <div className="status-card">
-          <p className="status-card__label">{copy.statusCards.sampleLabel[lang]}</p>
-          <p className="status-card__value status-card__value--ok">{formatBool(payload.sample_data, lang)}</p>
-          <p className="status-card__explain" lang={lang}>{copy.statusCards.sampleYes[lang]}</p>
-        </div>
-      </div>
-
-      {/* Trade teams */}
-      <section className="section">
-        <h3 className="section__title">{t.teamsTitle[lang]}</h3>
-        <div className="trade-teams">
-          <div className="trade-team">
-            <span className="trade-team__label">A</span>
-            <span className="trade-team__id">{tx.team_a_id}</span>
+      {/* Status cards — suppressed in console mode (page-level indicator-grid covers this) */}
+      {!isConsole && (
+        <div className="status-grid">
+          <div className="status-card">
+            <p className="status-card__label">{t.validationStatus[lang]}</p>
+            <p className={`status-card__value ${statusClass(vr.status)}`}>{vr.status}</p>
+            <p className="status-card__explain" lang={lang}>{outputLine}</p>
           </div>
-          <span className="trade-arrow" aria-hidden="true">⇄</span>
-          <div className="trade-team">
-            <span className="trade-team__label">B</span>
-            <span className="trade-team__id">{tx.team_b_id}</span>
+          <div className="status-card">
+            <p className="status-card__label">{t.isValid[lang]}</p>
+            <p className={`status-card__value ${vr.is_valid ? "status-card__value--ok" : "status-card__value--bad"}`}>
+              {formatBool(vr.is_valid, lang)}
+            </p>
+            <p className="status-card__explain" lang={lang}>
+              {vr.is_valid
+                ? copy.statusCards.evaluationExplain.PASS[lang]
+                : copy.statusCards.evaluationExplain.FAIL[lang]}
+            </p>
+          </div>
+          <div className="status-card">
+            <p className="status-card__label">{copy.statusCards.approvalLabel[lang]}</p>
+            <p className="status-card__value status-card__value--warn">{formatBool(payload.requires_human_approval, lang)}</p>
+            <p className="status-card__explain" lang={lang}>{copy.statusCards.approvalYes[lang]}</p>
+          </div>
+          <div className="status-card">
+            <p className="status-card__label">{copy.statusCards.sampleLabel[lang]}</p>
+            <p className="status-card__value status-card__value--ok">{formatBool(payload.sample_data, lang)}</p>
+            <p className="status-card__explain" lang={lang}>{copy.statusCards.sampleYes[lang]}</p>
           </div>
         </div>
-      </section>
+      )}
+
+      {/* Trade teams — suppressed in console mode (page-level trade-dashboard-header covers this) */}
+      {!isConsole && (
+        <section className="section">
+          <h3 className="section__title">{t.teamsTitle[lang]}</h3>
+          <div className="trade-teams">
+            <div className="trade-team">
+              <span className="trade-team__label">A</span>
+              <span className="trade-team__id">{tx.team_a_id}</span>
+            </div>
+            <span className="trade-arrow" aria-hidden="true">⇄</span>
+            <div className="trade-team">
+              <span className="trade-team__label">B</span>
+              <span className="trade-team__id">{tx.team_b_id}</span>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Trade assets */}
       <section className="section">

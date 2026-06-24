@@ -110,13 +110,13 @@ export const copy = {
       en: "The agent runs these checks in order. After clicking generate, the frontend calls the local backend API first; if the backend is unavailable, it falls back to local static samples.",
     } as Bilingual,
     steps: [
-      { zh: "读取球队薪资空间", en: "Read team cap space" } as Bilingual,
-      { zh: "分析阵容缺口", en: "Analyze roster needs" } as Bilingual,
+      { zh: "读取薪资空间", en: "Read cap space" } as Bilingual,
+      { zh: "评估阵容需求", en: "Evaluate roster needs" } as Bilingual,
       { zh: "匹配自由球员", en: "Match free agents" } as Bilingual,
-      { zh: "预览签约规则", en: "Preview signing rules" } as Bilingual,
-      { zh: "检索样例证据", en: "Retrieve sample evidence" } as Bilingual,
-      { zh: "运行安全检查", en: "Run guardrail checks" } as Bilingual,
-      { zh: "生成方案", en: "Build proposal" } as Bilingual,
+      { zh: "生成签约方案", en: "Generate signing plan" } as Bilingual,
+      { zh: "薪资规则检查", en: "Salary rule check" } as Bilingual,
+      { zh: "风险评估", en: "Risk assessment" } as Bilingual,
+      { zh: "生成预览", en: "Build preview" } as Bilingual,
     ] as Bilingual[],
 
     // Output region
@@ -711,6 +711,137 @@ export const copy = {
     } as Bilingual,
     payloadSource: { zh: "数据来源：", en: "Payload source: " } as Bilingual,
   },
+  // ---- M8-D1: Dashboard polish ----
+  dashboard: {
+    // Data source status card
+    datasourceTitle: { zh: "数据源状态", en: "Data source status" } as Bilingual,
+    backendOnline: { zh: "后端在线", en: "Backend online" } as Bilingual,
+    backendOffline: { zh: "后端 API 不可用", en: "Backend API unavailable" } as Bilingual,
+    currentData: { zh: "当前使用", en: "Current data" } as Bilingual,
+    demoData: { zh: "演示数据", en: "Demo data" } as Bilingual,
+    sampleData: { zh: "样例数据", en: "Sample data" } as Bilingual,
+    fallbackData: { zh: "本地静态样例", en: "Local static sample" } as Bilingual,
+    apiAddr: { zh: "API 地址", en: "API address" } as Bilingual,
+    demoDataWarn: {
+      zh: "这些球队、球员、薪资和交易结果是 sample/demo 数据，不代表真实 NBA 数据。",
+      en: "These teams, players, salaries and trade results are sample/demo data — not real NBA data.",
+    } as Bilingual,
+    offlineWarn: {
+      zh: "正在使用本地静态 fallback 样例。请确认 uvicorn 已启动。",
+      en: "Using local static fallback samples. Please confirm uvicorn is running.",
+    } as Bilingual,
+
+    // Safety bar
+    safetyBarTitle: {
+      zh: "只读预览 —— 需要人工确认",
+      en: "Read-only preview — requires human approval",
+    } as Bilingual,
+    safetyBarBody: {
+      zh: "系统不会自动执行交易、签约或阵容变更。所有方案只用于预览，必须由人工确认后才可执行。",
+      en: "The system does not automatically execute trades, signings, or roster changes. All plans are for preview only and must be confirmed by a person before execution.",
+    } as Bilingual,
+
+    // Decision summary
+    decisionSummarySigning: {
+      zh: "建议：可以预览，但不能自动执行",
+      en: "Recommendation: can preview, but cannot auto-execute",
+    } as Bilingual,
+    decisionSummarySigningBody: {
+      zh: "系统找到一个通过规则检查的签约预览；该方案仍需人工确认，且当前数据不是正式 NBA 数据。",
+      en: "The system found a signing preview that passed rule checks; the plan still requires human approval, and the current data is not official NBA data.",
+    } as Bilingual,
+    decisionSummaryHold: {
+      zh: "建议：暂不行动",
+      en: "Recommendation: hold",
+    } as Bilingual,
+    decisionSummaryHoldBody: {
+      zh: "预算受限，系统没有找到符合条件的候选人。阵容保持不变。当前数据不是正式 NBA 数据。",
+      en: "Budget too tight — no matching candidate found. Roster stays unchanged. Current data is not official NBA data.",
+    } as Bilingual,
+    decisionSummaryTrade: {
+      zh: "交易预览：系统检查了一笔两队交易",
+      en: "Trade preview: the system checked a two-team trade",
+    } as Bilingual,
+    decisionSummaryTradeBody: {
+      zh: "系统检查了一笔两队交易，并展示规则结果和交易后阵容影响。这只是预览，不会修改任何 roster state。",
+      en: "The system checked a two-team trade and shows rule results and post-trade roster impact. This is preview only — no roster state is modified.",
+    } as Bilingual,
+    tradeIndicatorHeadline: {
+      zh: "交易检查结果与指标概览",
+      en: "Trade check results & indicator overview",
+    } as Bilingual,
+    tradeIndicatorBody: {
+      zh: "以下指标卡展示规则验证、薪资匹配、人工确认要求和数据来源状态。详细交易资产和两队影响见下方。",
+      en: "The indicator cards below show rule validation, salary matching, human approval requirement, and data source status. Detailed trade assets and two-team impact are shown below.",
+    } as Bilingual,
+
+    // Indicator cards
+    realNbaLabel: { zh: "真实 NBA 数据", en: "Real NBA data" } as Bilingual,
+    realNbaNo: { zh: "否", en: "No" } as Bilingual,
+    realNbaExplain: {
+      zh: "使用 sample/demo 数据",
+      en: "Using sample/demo data",
+    } as Bilingual,
+
+    // Safety boundary
+    safetyBoundaryTitle: { zh: "查看安全边界", en: "View safety boundary" } as Bilingual,
+    safetyBoundaryHint: {
+      zh: "展开后可查看系统不会做什么、所有限制和安全边界说明。",
+      en: "Expand to see what the system does not do, all limitations, and safety boundary details.",
+    } as Bilingual,
+
+    // Empty state
+    emptyState: {
+      zh: "选择场景模式后点击「生成休赛期方案」查看系统建议。",
+      en: "Pick a scenario mode and click \"Generate offseason plan\" to see the system recommendation.",
+    } as Bilingual,
+  } as const,
+
+  // ---- M8-D1: Console Shell layout ----
+  consoleShell: {
+    // Sidebar navigation
+    navHome: { zh: "首页", en: "Home" } as Bilingual,
+    navConsole: { zh: "休赛期控制台", en: "Offseason Console" } as Bilingual,
+    navCapSheet: { zh: "薪资表", en: "Cap Sheet" } as Bilingual,
+    navDepthChart: { zh: "深度图", en: "Depth Chart" } as Bilingual,
+    navSettings: { zh: "设置", en: "Settings" } as Bilingual,
+    // Sidebar session context
+    sessionTitle: { zh: "当前会话", en: "Current session" } as Bilingual,
+    sessionTeam: { zh: "球队", en: "Team" } as Bilingual,
+    sessionMode: { zh: "模式", en: "Mode" } as Bilingual,
+    sessionBudget: { zh: "预算", en: "Budget" } as Bilingual,
+    sessionStatus: { zh: "状态", en: "Status" } as Bilingual,
+    statusRunning: { zh: "运行中", en: "Running" } as Bilingual,
+    statusIdle: { zh: "待机", en: "Idle" } as Bilingual,
+    statusComplete: { zh: "已完成", en: "Complete" } as Bilingual,
+    // Workspace header
+    workspaceTitle: { zh: "Offseason Console", en: "Offseason Console" } as Bilingual,
+    workspaceEyebrow: { zh: "休赛期决策", en: "Offseason Decision" } as Bilingual,
+    readOnlyBadge: { zh: "只读预览", en: "Read-only preview" } as Bilingual,
+    // Inspector sections
+    inspectorPipeline: { zh: "Pipeline", en: "Pipeline" } as Bilingual,
+    inspectorIndicators: { zh: "状态指标", en: "Status Indicators" } as Bilingual,
+    inspectorKeyMetrics: { zh: "关键指标", en: "Key Metrics" } as Bilingual,
+    inspectorDataSource: { zh: "数据源", en: "Data Source" } as Bilingual,
+    // Trade console specific
+    tradeMatchup: { zh: "交易对阵", en: "Trade Matchup" } as Bilingual,
+    tradeSendReceive: { zh: "送出 / 得到", en: "Send / Receive" } as Bilingual,
+    tradePostImpact: { zh: "交易后影响", en: "Post-Trade Impact" } as Bilingual,
+    tradeWhyApproval: { zh: "为什么仍需人工确认", en: "Why human approval" } as Bilingual,
+    // Fit score display
+    fitScoreLabel: { zh: "匹配分", en: "fit_score" } as Bilingual,
+    capImpactLabel: { zh: "薪资占用", en: "cap_impact" } as Bilingual,
+    riskLevelLabel: { zh: "风险等级", en: "risk_level" } as Bilingual,
+    // Inspector indicator labels
+    indicatorProposalStatus: { zh: "方案状态", en: "Proposal status" } as Bilingual,
+    indicatorEvaluation: { zh: "检查结果", en: "Evaluation" } as Bilingual,
+    indicatorHumanApproval: { zh: "人工确认", en: "Human approval" } as Bilingual,
+    indicatorDataType: { zh: "数据类型", en: "Data type" } as Bilingual,
+    indicatorRealNba: { zh: "真实 NBA", en: "Real NBA" } as Bilingual,
+    // Inspector trade indicators
+    indicatorValidationStatus: { zh: "验证状态", en: "Validation status" } as Bilingual,
+    indicatorSalaryMatch: { zh: "薪资配平", en: "Salary match" } as Bilingual,
+  } as const,
 } as const;
 
 // ---- Helper: format salary ----

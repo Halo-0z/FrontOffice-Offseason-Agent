@@ -403,34 +403,39 @@ export default function ProposalViewer({
 
   return (
     <div lang={lang}>
-      {/* Approval boundary banner */}
-      <div className="approval-banner">
-        <strong>{copy.approvalBanner.strong[lang]}</strong>{" "}
-        {copy.approvalBanner.body[lang]}
-      </div>
+      {/* Approval boundary banner — suppressed in console mode (page-level safety-bar covers this) */}
+      {!isConsole && (
+        <div className="approval-banner">
+          <strong>{copy.approvalBanner.strong[lang]}</strong>{" "}
+          {copy.approvalBanner.body[lang]}
+        </div>
+      )}
 
-      {/* User-facing summary block */}
-      <div className={`summary-block ${isNoAction ? "summary-block--hold" : ""}`}>
-        <p className="summary-headline">{summaryHeadline}</p>
-        <p className="summary-body">{summaryBody}</p>
-      </div>
+      {/* User-facing summary block — suppressed in console mode (page-level decision-summary covers this) */}
+      {!isConsole && (
+        <div className={`summary-block ${isNoAction ? "summary-block--hold" : ""}`}>
+          <p className="summary-headline">{summaryHeadline}</p>
+          <p className="summary-body">{summaryBody}</p>
+        </div>
+      )}
 
-      {/* Status cards */}
-      <div className="status-grid">
-        <StatusCard
-          label={copy.statusCards.proposalLabel[lang]}
-          value={proposal.status}
-          explain={proposalExplain}
-          valueClass={statusValueClass(proposal.status)}
-          lang={lang}
-        />
-        <StatusCard
-          label={copy.statusCards.evaluationLabel[lang]}
-          value={evaluation.status}
-          explain={evaluationExplain}
-          valueClass={statusValueClass(evaluation.status)}
-          lang={lang}
-        />
+      {/* Status cards — suppressed in console mode (page-level indicator-grid covers this) */}
+      {!isConsole && (
+        <div className="status-grid">
+          <StatusCard
+            label={copy.statusCards.proposalLabel[lang]}
+            value={proposal.status}
+            explain={proposalExplain}
+            valueClass={statusValueClass(proposal.status)}
+            lang={lang}
+          />
+          <StatusCard
+            label={copy.statusCards.evaluationLabel[lang]}
+            value={evaluation.status}
+            explain={evaluationExplain}
+            valueClass={statusValueClass(evaluation.status)}
+            lang={lang}
+          />
         <StatusCard
           label={copy.statusCards.approvalLabel[lang]}
           value={formatBool(proposal.requires_human_approval, lang)}
@@ -453,50 +458,38 @@ export default function ProposalViewer({
           valueClass={proposal.sample_data ? "status-card__value--warn" : ""}
           lang={lang}
         />
-      </div>
+        </div>
+      )}
 
-      {/* How the system reached this result */}
-      <section className="section">
-        <h2 className="section__title">{copy.howSection.title[lang]}</h2>
-        <p className="section__hint">{copy.howSection.hint[lang]}</p>
-        <ol
-          style={{
-            margin: 0,
-            paddingLeft: "1.2rem",
-            fontSize: "0.92rem",
-            color: "var(--ink)",
-            lineHeight: 1.8,
-          }}
-        >
-          {copy.howSection.steps.map((step, i) => (
-            <li key={i} value={i + 1}>
-              {step[lang]}
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      {/* Recommended actions */}
-      <section className="section">
-        <h2 className="section__title">{copy.actionsSection.title[lang]}</h2>
-        <p className="section__hint">{copy.actionsSection.hint[lang]}</p>
-        {actions.map((action) => (
-          <ActionCard key={action.action_id} action={action} lang={lang} />
-        ))}
-      </section>
-
-      {/* ---- Audit-heavy sections ----
-           In "console" variant these collapse into a <details> block so
-           the output region stays scannable. In "report" variant they
-           render inline as before. All fields are preserved either way. */}
+      {/* How the system reached this result — compact in console mode */}
       {isConsole ? (
-        <details className="audit-details">
+        <details className="audit-details" style={{ marginTop: "var(--space-sm)" }}>
           <summary>
-            {copy.console.auditToggle[lang]}{" "}
-            <span className="audit-details__hint">
-              {copy.console.auditToggleHint[lang]}
-            </span>
+            {copy.howSection.title[lang]}
           </summary>
+          <ol
+            style={{
+              margin: 0,
+              paddingLeft: "1.2rem",
+              fontSize: "0.88rem",
+              color: "var(--ink)",
+              lineHeight: 1.7,
+            }}
+          >
+            {copy.howSection.steps.map((step, i) => (
+              <li key={i} value={i + 1}>
+                {step[lang]}
+              </li>
+            ))}
+          </ol>
+          {/* Recommended actions — inside collapsed details in console mode */}
+          <section className="section" style={{ marginTop: "var(--space-sm)" }}>
+            <h2 className="section__title">{copy.actionsSection.title[lang]}</h2>
+            <p className="section__hint">{copy.actionsSection.hint[lang]}</p>
+            {actions.map((action) => (
+              <ActionCard key={action.action_id} action={action} lang={lang} />
+            ))}
+          </section>
           <AuditSections
             proposal={proposal}
             evaluation={evaluation}
@@ -508,15 +501,48 @@ export default function ProposalViewer({
           />
         </details>
       ) : (
-        <AuditSections
-          proposal={proposal}
-          evaluation={evaluation}
-          evidence={evidence}
-          tool_trace={tool_trace}
-          limitations={limitations}
-          isNoAction={isNoAction}
-          lang={lang}
-        />
+        <>
+          {/* How the system reached this result */}
+          <section className="section">
+            <h2 className="section__title">{copy.howSection.title[lang]}</h2>
+            <p className="section__hint">{copy.howSection.hint[lang]}</p>
+            <ol
+              style={{
+                margin: 0,
+                paddingLeft: "1.2rem",
+                fontSize: "0.92rem",
+                color: "var(--ink)",
+                lineHeight: 1.8,
+              }}
+            >
+              {copy.howSection.steps.map((step, i) => (
+                <li key={i} value={i + 1}>
+                  {step[lang]}
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          {/* Recommended actions */}
+          <section className="section">
+            <h2 className="section__title">{copy.actionsSection.title[lang]}</h2>
+            <p className="section__hint">{copy.actionsSection.hint[lang]}</p>
+            {actions.map((action) => (
+              <ActionCard key={action.action_id} action={action} lang={lang} />
+            ))}
+          </section>
+
+          {/* Audit-heavy sections */}
+          <AuditSections
+            proposal={proposal}
+            evaluation={evaluation}
+            evidence={evidence}
+            tool_trace={tool_trace}
+            limitations={limitations}
+            isNoAction={isNoAction}
+            lang={lang}
+          />
+        </>
       )}
 
       {/* What this demo does not do (limitations, user-friendly) */}
