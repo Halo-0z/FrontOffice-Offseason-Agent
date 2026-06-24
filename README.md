@@ -63,12 +63,25 @@ with hard guardrails:
 Run from the repo root on Windows PowerShell. The project uses
 `D:\anaconda\python.exe` (Python 3.12+).
 
+### Install backend dependencies
+
 ```powershell
 cd D:\FrontOffice-Offseason-Agent
 
+# Minimal backend + API + test dependencies (no LLM, no MCP, no NBA API)
+D:\anaconda\python.exe -m pip install -r requirements.txt
+```
+
+### Run the test suite
+
+```powershell
 # 1. Run the full test suite (deterministic, no network)
 D:\anaconda\python.exe -m pytest backend/app/tests
+```
 
+### Run the CLI demos
+
+```powershell
 # 2. Default demo: DEM-ATL, target C, max salary 20M
 D:\anaconda\python.exe backend/scripts/run_offseason_demo.py
 
@@ -77,10 +90,41 @@ D:\anaconda\python.exe backend/scripts/run_offseason_demo.py --target-position C
 
 # 4. Stable JSON payload for downstream tooling / future UI
 D:\anaconda\python.exe backend/scripts/run_offseason_demo.py --format json
+
+# 5. Trade preview demo (M6-D): two-team trade with salary matching + depth chart
+D:\anaconda\python.exe backend/scripts/run_trade_preview_demo.py --format json
 ```
 
 The CLI prints to stdout and writes no files. Exit code is `0` on
 success, non-zero on argument error or unknown team.
+
+### Run the backend API (M7-A)
+
+```powershell
+# Start the FastAPI dev server (read-only, sample data only)
+D:\anaconda\python.exe -m uvicorn backend.app.api:app --reload
+```
+
+API endpoints (sample / simulation data — not real NBA data, not a
+prediction, not an approved transaction):
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `http://127.0.0.1:8000/api/health` | Liveness probe (`status: ok`, `sample_data: true`) |
+| GET | `http://127.0.0.1:8000/api/offseason/scenarios` | List the three demo scenarios |
+| POST | `http://127.0.0.1:8000/api/offseason/proposal-preview` | Generate a proposal preview (wraps `build_demo_payload`) |
+| GET | `http://127.0.0.1:8000/api/offseason/trade-preview-demo` | Fixed two-team trade preview (wraps `run_trade_preview_demo`) |
+
+API boundaries:
+
+- **Sample data only** — every response has `sample_data: true`.
+- **No real NBA API** — no network calls; all data is local JSON.
+- **No LLM / MCP** — the API does not call any LLM or MCP tool.
+- **No data writes** — the API never mutates `data/` files.
+- **Preview only** — every response has `requires_human_approval: true`;
+  a `PASS` / `RECOMMENDED` status never approves a transaction.
+- **No transaction execution** — the API never approves, executes, or
+  persists a signing or trade.
 
 ## Demo Scenarios
 

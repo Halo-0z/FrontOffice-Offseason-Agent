@@ -31,6 +31,17 @@ no LLM, no MCP, no disk writes.
 - **No external services**: no database, no LLM API key, no MCP server,
   no NBA API key. All data is local JSON under `data/`.
 
+## Install backend dependencies
+
+The project ships a minimal `requirements.txt` (FastAPI + uvicorn +
+pydantic + httpx + pytest + pytest-asyncio). No LLM, no MCP, no NBA
+API, no database dependencies.
+
+```powershell
+cd D:\FrontOffice-Offseason-Agent
+D:\anaconda\python.exe -m pip install -r requirements.txt
+```
+
 ## Step 0 — Smoke test
 
 Run the full deterministic test suite. This is the fastest way to
@@ -177,6 +188,46 @@ D:\anaconda\python.exe -c "import subprocess, sys; a=subprocess.run([sys.executa
 ```
 
 **Expected**: `True`.
+
+## Step 7 — Backend API (M7-A)
+
+The project ships a minimal FastAPI app (`backend/app/api.py`) that
+exposes the same deterministic backend over HTTP. This is the bridge
+the frontend will call in M7-B. The API is read-only, uses sample
+data, and never approves a transaction.
+
+```powershell
+# Start the dev server (Ctrl+C to stop)
+D:\anaconda\python.exe -m uvicorn backend.app.api:app --reload
+```
+
+While the server is running, open these endpoints in a browser or
+with `curl`:
+
+| Method | URL | Description |
+|---|---|---|
+| GET | `http://127.0.0.1:8000/api/health` | Liveness probe |
+| GET | `http://127.0.0.1:8000/api/offseason/scenarios` | List demo scenarios |
+| POST | `http://127.0.0.1:8000/api/offseason/proposal-preview` | Generate a proposal preview |
+| GET | `http://127.0.0.1:8000/api/offseason/trade-preview-demo` | Fixed two-team trade preview |
+
+Example `proposal-preview` request body (POST as JSON):
+
+```json
+{
+  "team_id": "DEM-ATL",
+  "objective": "Add frontcourt help",
+  "target_positions": ["C"],
+  "max_salary": 20000000,
+  "max_candidates": 2,
+  "evidence_query": "center need cap flexibility"
+}
+```
+
+**Expected**: the API returns the same schema as the CLI JSON output.
+`requires_human_approval` is always `true`; `sample_data` is always
+`true`. The API does not write to `data/` and does not call any LLM,
+MCP, or external NBA API.
 
 ## What to look for in the output
 
