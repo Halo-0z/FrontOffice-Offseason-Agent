@@ -51,11 +51,11 @@ export const copy = {
 
   // ---- /offseason Hero (Agent Console framing) ----
   hero: {
-    eyebrow: { zh: "休赛期方案生成工作台", en: "Offseason Plan Console" } as Bilingual,
+    eyebrow: { zh: "Offseason Plan Console", en: "Offseason Plan Console" } as Bilingual,
     title: { zh: "休赛期方案生成工作台", en: "Offseason Plan Console" } as Bilingual,
     lede: {
-      zh: "选择目标和预算，预览系统会如何检查薪资、阵容需求、候选人和规则，最后生成一个可审计的休赛期方案。这是一个静态 demo：点击生成会在两份本地样例结果之间切换，不调用后端 API。",
-      en: "Pick a target and budget, then preview how the system checks cap space, roster needs, candidates, and rules to produce an auditable offseason plan. This is a static demo: clicking generate switches between two local sample results — no backend API call.",
+      zh: "选择目标和预算，预览系统会如何检查薪资、阵容需求、候选人和规则，最后生成一个可审计的休赛期方案。这是一个静态 demo：点击生成会在三份本地样例结果之间切换，不调用后端 API。",
+      en: "Pick a target and budget, then preview how the system checks cap space, roster needs, candidates, and rules to produce an auditable offseason plan. This is a static demo: clicking generate switches between three local sample results — no backend API call.",
     } as Bilingual,
     badges: {
       sample: { zh: "样例数据", en: "sample data" } as Bilingual,
@@ -72,8 +72,8 @@ export const copy = {
     // Input panel
     inputTitle: { zh: "方案设置", en: "Plan settings" } as Bilingual,
     inputHint: {
-      zh: "当前为静态 demo：点击生成会在两份本地样例结果之间切换，不调用后端 API。",
-      en: "Static demo: clicking generate switches between two local sample results. No backend API call.",
+      zh: "当前为静态 demo：点击生成会在三份本地样例结果之间切换，不调用后端 API。",
+      en: "Static demo: clicking generate switches between three local sample results. No backend API call.",
     } as Bilingual,
     fieldTeam: { zh: "球队", en: "Team" } as Bilingual,
     fieldObjective: { zh: "目标", en: "Objective" } as Bilingual,
@@ -531,6 +531,140 @@ export const copy = {
   proposalAudit: {
     title: { zh: "方案完整字段（审计）", en: "Proposal Details (audit)" } as Bilingual,
   },
+
+  // ---- Agent Console: scenario mode cards (M6-D) ----
+  consoleModes: {
+    signing: {
+      label: { zh: "签约推荐", en: "Signing" } as Bilingual,
+      desc: {
+        zh: "$20M 预算：预览一个中锋签约方案。",
+        en: "$20M budget: preview a center signing.",
+      } as Bilingual,
+    },
+    hold: {
+      label: { zh: "预算受限", en: "Strict Budget" } as Bilingual,
+      desc: {
+        zh: "$15M 预算：找不到候选人，建议暂不行动。",
+        en: "$15M budget: no candidate fits, hold.",
+      } as Bilingual,
+    },
+    trade: {
+      label: { zh: "模拟交易", en: "Trade Preview" } as Bilingual,
+      desc: {
+        zh: "预览一笔两队交易，检查薪资配平、阵容人数和交易后深度图变化。",
+        en: "Preview a two-team trade: salary matching, roster count, and post-trade depth chart.",
+      } as Bilingual,
+    },
+  } as const,
+
+  // ---- Trade preview scenario (M6-D) ----
+  trade: {
+    // Output headline
+    outputHeadline: {
+      zh: "交易预览：系统检查了一笔两队交易，并展示规则结果和交易后阵容影响。",
+      en: "Trade preview: the system checked a two-team trade and shows the rule result and post-trade roster impact.",
+    } as Bilingual,
+    outputPass: {
+      zh: "交易通过规则检查：薪资配平满足，阵容人数未超限。",
+      en: "Trade passed rule checks: salary matching satisfied, roster count within limit.",
+    } as Bilingual,
+    outputWarn: {
+      zh: "交易通过但有警告 —— 需要人工复核被标记的项目。",
+      en: "Trade passed with warnings — a person should review the flagged items.",
+    } as Bilingual,
+    outputFail: {
+      zh: "交易未通过规则检查 —— 不能直接使用。",
+      en: "Trade failed rule checks — must not be used as-is.",
+    } as Bilingual,
+
+    // Approval boundary
+    boundary: {
+      zh: "这只是交易预览，不会批准、执行或写入任何交易。",
+      en: "This is a trade preview only. It does not approve, execute, or persist any transaction.",
+    } as Bilingual,
+
+    // Sections
+    teamsTitle: { zh: "交易双方", en: "Trade teams" } as Bilingual,
+    assetsTitle: { zh: "交易资产", en: "Trade assets" } as Bilingual,
+    outgoingFromA: { zh: "DEM-ATL 送出", en: "Outgoing from DEM-ATL" } as Bilingual,
+    outgoingFromB: { zh: "DEM-PDX 送出", en: "Outgoing from DEM-PDX" } as Bilingual,
+    incomingToA: { zh: "DEM-ATL 得到", en: "Incoming to DEM-ATL" } as Bilingual,
+    incomingToB: { zh: "DEM-PDX 得到", en: "Incoming to DEM-PDX" } as Bilingual,
+
+    ruleCheckTitle: { zh: "规则检查结果", en: "Rule check result" } as Bilingual,
+    salaryMatchTitle: { zh: "薪资配平检查", en: "Salary matching" } as Bilingual,
+    rosterCheckTitle: { zh: "阵容人数检查", en: "Roster count check" } as Bilingual,
+
+    impactTitle: { zh: "交易后影响", en: "Post-trade impact" } as Bilingual,
+    rosterImpactLabel: { zh: "阵容影响", en: "Roster impact" } as Bilingual,
+    depthChartImpactLabel: { zh: "深度图影响", en: "Depth chart impact" } as Bilingual,
+    capImpactLabel: { zh: "薪资空间影响", en: "Cap impact" } as Bilingual,
+
+    whyApprovalTitle: { zh: "为什么仍需人工确认", en: "Why human approval is still required" } as Bilingual,
+    whyApprovalBody: {
+      zh: "即使交易通过了规则检查，这仍然只是预览。系统不会自动批准任何交易，所有变动都必须由人工确认后才能执行。",
+      en: "Even though the trade passed rule checks, this is still a preview. The system never auto-approves a trade — every change must be confirmed by a person before execution.",
+    } as Bilingual,
+
+    risksTitle: { zh: "风险与提醒", en: "Risks" } as Bilingual,
+    riskSgGap: {
+      zh: "送出 SG 后，DEM-ATL 的 SG 位置出现空缺（深度图显示 SG 无首发）。",
+      en: "After sending out the SG, DEM-ATL has no starter at SG (depth chart shows SG empty).",
+    } as Bilingual,
+    riskSalaryUp: {
+      zh: "交易后 DEM-ATL 总薪资上升 $4M（$74M → $78M），但仍在薪资帽以下。",
+      en: "Post-trade DEM-ATL total salary rises by $4M ($74M → $78M), but stays under the cap.",
+    } as Bilingual,
+    riskTeamBDeferred: {
+      zh: "当前预览只展示 DEM-ATL（A 队）的交易后阵容，DEM-PDX（B 队）的预览暂未展示。",
+      en: "The preview only shows DEM-ATL (team A) post-trade roster; DEM-PDX (team B) preview is deferred.",
+    } as Bilingual,
+    riskSampleData: {
+      zh: "所有球员、合同和薪资均为样例 / 模拟数据，不是真实 NBA 数据。",
+      en: "All players, contracts, and salaries are sample / simulation data, not real NBA data.",
+    } as Bilingual,
+
+    // Audit details
+    auditToggle: { zh: "查看交易审计详情", en: "View trade audit details" } as Bilingual,
+    auditToggleHint: {
+      zh: "展开后可查看 transaction_id、validation issues、薪资配平明细、cap summary、深度图原始字段和所有限制说明。",
+      en: "Expand to see transaction_id, validation issues, salary matching details, cap summary, raw depth chart fields, and all limitations.",
+    } as Bilingual,
+
+    // Field labels specific to trade
+    transactionId: { zh: "交易预览 ID", en: "transaction_id" } as Bilingual,
+    transactionType: { zh: "交易类型", en: "transaction_type" } as Bilingual,
+    validationStatus: { zh: "规则状态", en: "validation_status" } as Bilingual,
+    isValid: { zh: "是否通过", en: "is_valid" } as Bilingual,
+    playerId: { zh: "球员 ID", en: "player_id" } as Bilingual,
+    contractId: { zh: "合同 ID", en: "contract_id" } as Bilingual,
+    assetType: { zh: "资产类型", en: "asset_type" } as Bilingual,
+    fromTeam: { zh: "送出方", en: "from_team_id" } as Bilingual,
+    toTeam: { zh: "接收方", en: "to_team_id" } as Bilingual,
+    outgoingSalary: { zh: "送出薪资", en: "outgoing_salary" } as Bilingual,
+    incomingSalary: { zh: "得到薪资", en: "incoming_salary" } as Bilingual,
+    threshold: { zh: "配平阈值", en: "threshold" } as Bilingual,
+    passed: { zh: "是否配平", en: "passed" } as Bilingual,
+    capBefore: { zh: "交易前薪资概览", en: "cap_summary_before" } as Bilingual,
+    capAfter: { zh: "交易后薪资概览", en: "cap_summary_after" } as Bilingual,
+    totalSalary: { zh: "总薪资", en: "total_salary" } as Bilingual,
+    capSpace: { zh: "薪资空间", en: "cap_space" } as Bilingual,
+    taxDistance: { zh: "距奢侈税线", en: "tax_distance" } as Bilingual,
+    firstApronDistance: { zh: "距第一土豪线", en: "first_apron_distance" } as Bilingual,
+    secondApronDistance: { zh: "距第二土豪线", en: "second_apron_distance" } as Bilingual,
+    rosterCount: { zh: "阵容人数", en: "roster_count" } as Bilingual,
+    depthChartAfter: { zh: "交易后深度图", en: "depth_chart_after" } as Bilingual,
+    rosterNeedAfter: { zh: "交易后阵容需求", en: "roster_need_after" } as Bilingual,
+    position: { zh: "位置", en: "position" } as Bilingual,
+    starter: { zh: "首发", en: "starter" } as Bilingual,
+    backups: { zh: "替补", en: "backups" } as Bilingual,
+    needLevel: { zh: "需求等级", en: "need_level" } as Bilingual,
+    priority: { zh: "优先级", en: "priority" } as Bilingual,
+    currentCount: { zh: "当前人数", en: "current_count" } as Bilingual,
+    targetCount: { zh: "目标人数", en: "target_count" } as Bilingual,
+    noIssues: { zh: "没有未通过的检查。", en: "No issues — all checks passed." } as Bilingual,
+    noWarnings: { zh: "没有警告。", en: "No warnings." } as Bilingual,
+  } as const,
 
   // ---- Footer ----
   footer: {
