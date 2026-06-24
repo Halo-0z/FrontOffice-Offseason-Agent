@@ -600,6 +600,21 @@ export const copy = {
     depthChartImpactLabel: { zh: "深度图影响", en: "Depth chart impact" } as Bilingual,
     capImpactLabel: { zh: "薪资空间影响", en: "Cap impact" } as Bilingual,
 
+    // M7-C: Two-team post-trade view
+    twoTeamViewTitle: { zh: "两队交易后视图", en: "Two-team post-trade view" } as Bilingual,
+    twoTeamViewHint: {
+      zh: "系统同时计算了两队交易后的薪资、阵容需求和深度图。",
+      en: "The system calculates post-trade cap, roster needs, and depth chart for both teams.",
+    } as Bilingual,
+    teamPostTradeTitle: {
+      zh: "交易后影响（{team}）",
+      en: "Post-trade impact ({team})",
+    } as Bilingual,
+    teamSectionTitle: {
+      zh: "{team} 交易后详情",
+      en: "{team} post-trade details",
+    } as Bilingual,
+
     whyApprovalTitle: { zh: "为什么仍需人工确认", en: "Why human approval is still required" } as Bilingual,
     whyApprovalBody: {
       zh: "即使交易通过了规则检查，这仍然只是预览。系统不会自动批准任何交易，所有变动都必须由人工确认后才能执行。",
@@ -615,9 +630,13 @@ export const copy = {
       zh: "交易后 DEM-ATL 总薪资上升 $4M（$74M → $78M），但仍在薪资帽以下。",
       en: "Post-trade DEM-ATL total salary rises by $4M ($74M → $78M), but stays under the cap.",
     } as Bilingual,
-    riskTeamBDeferred: {
-      zh: "当前预览只展示 DEM-ATL（A 队）的交易后阵容，DEM-PDX（B 队）的预览暂未展示。",
-      en: "The preview only shows DEM-ATL (team A) post-trade roster; DEM-PDX (team B) preview is deferred.",
+    riskTeamBCGap: {
+      zh: "送出 C（pl-007）后，DEM-PDX 的 C 位出现空缺（深度图显示 C 无首发）。",
+      en: "After sending out C (pl-007), DEM-PDX has no starter at C (depth chart shows C empty).",
+    } as Bilingual,
+    riskTeamBSalaryDown: {
+      zh: "交易后 DEM-PDX 总薪资下降 $4M（$74M → $70M），薪资空间更宽裕。",
+      en: "Post-trade DEM-PDX total salary drops by $4M ($74M → $70M), freeing cap space.",
     } as Bilingual,
     riskSampleData: {
       zh: "所有球员、合同和薪资均为样例 / 模拟数据，不是真实 NBA 数据。",

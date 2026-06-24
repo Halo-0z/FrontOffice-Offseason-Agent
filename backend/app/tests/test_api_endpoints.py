@@ -420,6 +420,74 @@ def test_trade_preview_demo_matches_cli_output(client: TestClient) -> None:
     assert api_payload == cli_payload
 
 
+def test_trade_preview_demo_has_team_a_and_team_b_post_trade(client: TestClient) -> None:
+    """M7-C: the trade preview payload must include team_a_post_trade
+    and team_b_post_trade blocks, each with cap/roster/depth data."""
+    resp = client.get("/api/offseason/trade-preview-demo")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    # Top-level per-team blocks (M7-C).
+    assert "team_a_post_trade" in body
+    assert "team_b_post_trade" in body
+
+    team_a = body["team_a_post_trade"]
+    team_b = body["team_b_post_trade"]
+
+    # Team A block.
+    assert team_a["team_id"] == "DEM-ATL"
+    assert team_a["cap_summary_before"] is not None
+    assert team_a["cap_summary_after"] is not None
+    assert team_a["roster_need_after"] is not None
+    assert team_a["depth_chart_after"] is not None
+    assert team_a["cap_impact_summary"] is not None
+    assert team_a["roster_impact_summary"] is not None
+    assert team_a["depth_chart_impact_summary"] is not None
+
+    # Team B block.
+    assert team_b["team_id"] == "DEM-PDX"
+    assert team_b["cap_summary_before"] is not None
+    assert team_b["cap_summary_after"] is not None
+    assert team_b["roster_need_after"] is not None
+    assert team_b["depth_chart_after"] is not None
+    assert team_b["cap_impact_summary"] is not None
+    assert team_b["roster_impact_summary"] is not None
+    assert team_b["depth_chart_impact_summary"] is not None
+
+    # Preview-level Team B fields (M7-C).
+    preview = body["preview"]
+    assert preview["team_b_cap_summary_after"] is not None
+    assert preview["team_b_roster_need_after"] is not None
+    assert preview["team_b_depth_chart_after"] is not None
+
+    # Validation result Team B cap fields (M7-C).
+    vr = preview["validation_result"]
+    assert vr["team_b_cap_summary_before"] is not None
+    assert vr["team_b_cap_summary_after"] is not None
+
+
+def test_trade_preview_demo_team_b_cap_values_correct(client: TestClient) -> None:
+    """M7-C: DEM-PDX cap must go from $74M to $70M in the demo trade
+    (sends pl-007/$26M, receives pl-002/$22M)."""
+    resp = client.get("/api/offseason/trade-preview-demo")
+    body = resp.json()
+    team_b = body["team_b_post_trade"]
+    assert team_b["cap_summary_before"]["total_salary"] == 74_000_000
+    assert team_b["cap_summary_after"]["total_salary"] == 70_000_000
+    assert team_b["cap_summary_after"]["team_id"] == "DEM-PDX"
+
+
+def test_trade_preview_demo_team_a_cap_values_correct(client: TestClient) -> None:
+    """M7-C: DEM-ATL cap must go from $74M to $78M in the demo trade
+    (sends pl-002/$22M, receives pl-007/$26M)."""
+    resp = client.get("/api/offseason/trade-preview-demo")
+    body = resp.json()
+    team_a = body["team_a_post_trade"]
+    assert team_a["cap_summary_before"]["total_salary"] == 74_000_000
+    assert team_a["cap_summary_after"]["total_salary"] == 78_000_000
+    assert team_a["cap_summary_after"]["team_id"] == "DEM-ATL"
+
+
 # --------------------------------------------------------------------------- #
 # Schema consistency with CLI (proposal preview)
 # --------------------------------------------------------------------------- #

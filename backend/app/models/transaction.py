@@ -177,6 +177,10 @@ class ValidationResult:
             transaction. For trades, this is team A's summary.
         cap_summary_after: Optional cap summary after the transaction.
             For trades, this is team A's post-trade summary.
+        team_b_cap_summary_before: (Trades only) Team B's cap summary
+            before the trade. ``None`` for signings. Added in M7-C.
+        team_b_cap_summary_after: (Trades only) Team B's cap summary
+            after the trade. ``None`` for signings. Added in M7-C.
         evidence_ids: Evidence ids echoed back from the transaction.
         requires_human_approval: Always True in M2.
         limitations: Notes about MVP simplifications.
@@ -190,6 +194,8 @@ class ValidationResult:
     warnings: Tuple[ValidationIssue, ...] = field(default_factory=tuple)
     cap_summary_before: Optional[object] = None
     cap_summary_after: Optional[object] = None
+    team_b_cap_summary_before: Optional[object] = None
+    team_b_cap_summary_after: Optional[object] = None
     evidence_ids: Tuple[str, ...] = field(default_factory=tuple)
     requires_human_approval: bool = True
     limitations: Tuple[str, ...] = field(default_factory=tuple)

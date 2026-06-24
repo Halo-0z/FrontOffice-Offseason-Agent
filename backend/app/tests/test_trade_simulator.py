@@ -685,5 +685,119 @@ def test_get_player_by_id_returns_profile_and_none() -> None:
     assert missing is None
 
 
+# --------------------------------------------------------------------------- #
+# M7-C: Team B full trade preview
+# --------------------------------------------------------------------------- #
+
+
+def test_preview_trade_returns_team_b_post_trade_preview() -> None:
+    """preview_trade must return Team B's post-trade cap summary, roster
+    need, and depth chart — not just Team A's."""
+    tx = _valid_trade_real_data(tx_id="tx-m7c-team-b-full")
+    preview = preview_trade(tx, DATA_DIR)
+    assert preview.validation_result.is_valid is True
+
+    # Team A (legacy fields, still present for backward compat).
+    assert preview.cap_summary_after is not None
+    assert preview.roster_need_after is not None
+    assert preview.depth_chart_after is not None
+
+    # Team B (M7-C new fields).
+    assert preview.team_b_cap_summary_after is not None
+    assert preview.team_b_roster_need_after is not None
+    assert preview.team_b_depth_chart_after is not None
+
+
+def test_preview_trade_team_a_cap_summary_after_correct() -> None:
+    """Team A cap_summary_after must be for DEM-ATL and reflect a
+    post-trade total salary change."""
+    tx = _valid_trade_real_data(tx_id="tx-m7c-team-a-cap")
+    preview = preview_trade(tx, DATA_DIR)
+    assert preview.cap_summary_after is not None
+    assert preview.cap_summary_after.team_id == "DEM-ATL"
+    # The trade must have changed Team A's salary (before != after).
+    vr = preview.validation_result
+    assert vr.cap_summary_before is not None
+    assert vr.cap_summary_after is not None
+    assert vr.cap_summary_before.total_salary != vr.cap_summary_after.total_salary
+
+
+def test_preview_trade_team_b_cap_summary_after_correct() -> None:
+    """Team B cap_summary_after must be for DEM-PDX and reflect a
+    post-trade total salary change (M7-C)."""
+    tx = _valid_trade_real_data(tx_id="tx-m7c-team-b-cap")
+    preview = preview_trade(tx, DATA_DIR)
+    assert preview.team_b_cap_summary_after is not None
+    assert preview.team_b_cap_summary_after.team_id == "DEM-PDX"
+    # The trade must have changed Team B's salary (before != after).
+    vr = preview.validation_result
+    assert vr.team_b_cap_summary_before is not None
+    assert vr.team_b_cap_summary_after is not None
+    assert (
+        vr.team_b_cap_summary_before.total_salary
+        != vr.team_b_cap_summary_after.total_salary
+    )
+
+
+def test_preview_trade_team_a_roster_need_after_exists() -> None:
+    """Team A roster_need_after must be a RosterNeedReport for DEM-ATL."""
+    tx = _valid_trade_real_data(tx_id="tx-m7c-team-a-need")
+    preview = preview_trade(tx, DATA_DIR)
+    assert isinstance(preview.roster_need_after, RosterNeedReport)
+    assert preview.roster_need_after.team_id == "DEM-ATL"
+
+
+def test_preview_trade_team_b_roster_need_after_exists() -> None:
+    """Team B roster_need_after must be a RosterNeedReport for DEM-PDX (M7-C)."""
+    tx = _valid_trade_real_data(tx_id="tx-m7c-team-b-need")
+    preview = preview_trade(tx, DATA_DIR)
+    assert isinstance(preview.team_b_roster_need_after, RosterNeedReport)
+    assert preview.team_b_roster_need_after.team_id == "DEM-PDX"
+
+
+def test_preview_trade_team_a_depth_chart_after_exists() -> None:
+    """Team A depth_chart_after must be a ProjectedDepthChart for DEM-ATL."""
+    tx = _valid_trade_real_data(tx_id="tx-m7c-team-a-depth")
+    preview = preview_trade(tx, DATA_DIR)
+    assert isinstance(preview.depth_chart_after, ProjectedDepthChart)
+    assert preview.depth_chart_after.team_id == "DEM-ATL"
+
+
+def test_preview_trade_team_b_depth_chart_after_exists() -> None:
+    """Team B depth_chart_after must be a ProjectedDepthChart for DEM-PDX (M7-C)."""
+    tx = _valid_trade_real_data(tx_id="tx-m7c-team-b-depth")
+    preview = preview_trade(tx, DATA_DIR)
+    assert isinstance(preview.team_b_depth_chart_after, ProjectedDepthChart)
+    assert preview.team_b_depth_chart_after.team_id == "DEM-PDX"
+
+
+def test_preview_trade_team_b_still_requires_human_approval() -> None:
+    """Team B preview must not weaken the human-approval guardrail."""
+    tx = _valid_trade_real_data(tx_id="tx-m7c-team-b-approval")
+    preview = preview_trade(tx, DATA_DIR)
+    assert preview.requires_human_approval is True
+
+
+def test_preview_trade_team_b_does_not_mutate_data_files() -> None:
+    """Team B preview computation must not mutate any data file."""
+    players_before = (DATA_DIR / "players.json").read_bytes()
+    contracts_before = (DATA_DIR / "contracts.json").read_bytes()
+    fa_before = (DATA_DIR / "free_agents.json").read_bytes()
+    tx = _valid_trade_real_data(tx_id="tx-m7c-team-b-no-mut")
+    preview_trade(tx, DATA_DIR)
+    assert (DATA_DIR / "players.json").read_bytes() == players_before
+    assert (DATA_DIR / "contracts.json").read_bytes() == contracts_before
+    assert (DATA_DIR / "free_agents.json").read_bytes() == fa_before
+
+
+def test_preview_trade_team_b_cap_matches_validation_result() -> None:
+    """The preview's team_b_cap_summary_after must equal the validation
+    result's team_b_cap_summary_after (single source of truth)."""
+    tx = _valid_trade_real_data(tx_id="tx-m7c-team-b-match")
+    preview = preview_trade(tx, DATA_DIR)
+    vr = preview.validation_result
+    assert preview.team_b_cap_summary_after == vr.team_b_cap_summary_after
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

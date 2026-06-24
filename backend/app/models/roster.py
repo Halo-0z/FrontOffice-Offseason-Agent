@@ -210,11 +210,24 @@ class TransactionPreview:
         roster_need_after: Roster need report computed on the preview
             roster, or ``None`` if validation failed (in which case the
             preview falls back to current state and documents it in
-            ``limitations``).
+            ``limitations``). For trades, this is Team A's post-trade
+            roster need (kept for backward compatibility).
         depth_chart_after: Depth chart computed on the preview roster,
-            or ``None`` if validation failed.
+            or ``None`` if validation failed. For trades, this is Team
+            A's post-trade depth chart (kept for backward compatibility).
         cap_summary_after: Cap summary after the transaction, taken
-            from the validation result when available.
+            from the validation result when available. For trades, this
+            is Team A's post-trade cap summary (kept for backward
+            compatibility).
+        team_b_roster_need_after: (Trades only) Team B's post-trade
+            roster need report, or ``None`` for signings or when
+            validation failed. Added in M7-C.
+        team_b_depth_chart_after: (Trades only) Team B's post-trade
+            depth chart, or ``None`` for signings or when validation
+            failed. Added in M7-C.
+        team_b_cap_summary_after: (Trades only) Team B's post-trade cap
+            summary, or ``None`` for signings or when validation
+            failed. Added in M7-C.
         requires_human_approval: Always ``True``.
         limitations: Notes about MVP simplifications and any fallback.
     """
@@ -224,5 +237,8 @@ class TransactionPreview:
     roster_need_after: Optional["RosterNeedReport"] = None
     depth_chart_after: Optional["ProjectedDepthChart"] = None
     cap_summary_after: Optional[object] = None
+    team_b_roster_need_after: Optional["RosterNeedReport"] = None
+    team_b_depth_chart_after: Optional["ProjectedDepthChart"] = None
+    team_b_cap_summary_after: Optional[object] = None
     requires_human_approval: bool = True
     limitations: Tuple[str, ...] = field(default_factory=tuple)

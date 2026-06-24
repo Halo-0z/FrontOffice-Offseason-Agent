@@ -1,21 +1,27 @@
 "use client";
 
 /**
- * TradePreviewViewer — M6-D bilingual trade preview viewer.
+ * TradePreviewViewer — M6-D / M7-C bilingual trade preview viewer.
  *
  * Two-layer design (mirrors ProposalViewer):
  *   1. User summary layer (plain Chinese/English: trade teams, outgoing
- *      / incoming assets, rule check result, post-trade roster / depth
- *      chart impact, risks, why human approval is still required).
+ *      / incoming assets, rule check result, two-team post-trade cap /
+ *      roster / depth chart impact, risks, why human approval is still
+ *      required).
  *   2. Audit trail layer (all professional fields preserved:
  *      transaction_id, validation issues, salary matching details, cap
- *      summary before/after, full depth chart slots, roster need report,
- *      raw limitations).
+ *      summary before/after for BOTH teams, full depth chart slots for
+ *      BOTH teams, roster need report for BOTH teams, raw limitations).
+ *
+ * M7-C: the viewer now shows Team A AND Team B post-trade impact. The
+ * old "Team B preview deferred" risk card has been replaced with
+ * concrete Team B risks (C gap, salary decrease).
  *
  * Display only. No API calls, no LLM, no MCP, no data mutation, no
  * transaction approval. All data is sample / simulation JSON.
  *
- * Milestone: M6-D (Static Trade Preview Scenario).
+ * Milestone: M6-D (Static Trade Preview Scenario) / M7-C (Team B full
+ * trade preview).
  */
 
 import type {
@@ -25,6 +31,7 @@ import type {
   ValidationIssueData,
   DepthChartSlotData,
   PositionNeedData,
+  TeamPostTradeData,
 } from "../data/demoTradePreviewPayload";
 import { copy, type Lang, formatSalary, formatBool } from "../data/i18n";
 
@@ -236,6 +243,48 @@ function IssueList({ issues, lang, emptyText }: { issues: ValidationIssueData[];
   );
 }
 
+/**
+ * M7-C: Per-team post-trade card. Renders the three impact summaries
+ * (cap, roster, depth chart) for a single team. Used for BOTH Team A
+ * and Team B so the viewer can show two-team impact with one component.
+ */
+function TeamPostTradeCard({
+  data,
+  lang,
+  label,
+}: {
+  data: TeamPostTradeData;
+  lang: Lang;
+  label: string;
+}) {
+  const t = copy.trade;
+  return (
+    <div className="team-post-trade-card">
+      <p className="team-post-trade-card__label">{label}</p>
+      <div className="team-post-trade-card__impacts">
+        {data.cap_impact_summary && (
+          <div className="impact-card">
+            <p className="impact-card__label">{t.capImpactLabel[lang]}</p>
+            <p className="impact-card__body">{data.cap_impact_summary}</p>
+          </div>
+        )}
+        {data.roster_impact_summary && (
+          <div className="impact-card">
+            <p className="impact-card__label">{t.rosterImpactLabel[lang]}</p>
+            <p className="impact-card__body">{data.roster_impact_summary}</p>
+          </div>
+        )}
+        {data.depth_chart_impact_summary && (
+          <div className="impact-card">
+            <p className="impact-card__label">{t.depthChartImpactLabel[lang]}</p>
+            <p className="impact-card__body">{data.depth_chart_impact_summary}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---- Audit sections (collapsible) ----
 
 function TradeAuditSections({ payload, lang }: { payload: DemoTradePayload; lang: Lang }) {
@@ -328,10 +377,10 @@ function TradeAuditSections({ payload, lang }: { payload: DemoTradePayload; lang
         </div>
       </section>
 
-      {/* Cap summary before / after */}
+      {/* Team A cap summary before / after */}
       {vr.cap_summary_before && vr.cap_summary_after && (
         <section className="audit-block">
-          <h4 className="audit-block__title">{t.capBefore[lang]} / {t.capAfter[lang]}</h4>
+          <h4 className="audit-block__title">{tx.team_a_id}: {t.capBefore[lang]} / {t.capAfter[lang]}</h4>
           <div className="cap-summary-grid">
             <CapSummaryCard summary={vr.cap_summary_before} lang={lang} label={t.capBefore[lang]} />
             <CapSummaryCard summary={vr.cap_summary_after} lang={lang} label={t.capAfter[lang]} />
@@ -339,19 +388,46 @@ function TradeAuditSections({ payload, lang }: { payload: DemoTradePayload; lang
         </section>
       )}
 
-      {/* Depth chart after */}
+      {/* Team A depth chart after */}
       {payload.preview.depth_chart_after && (
         <section className="audit-block">
-          <h4 className="audit-block__title">{t.depthChartAfter[lang]}</h4>
+          <h4 className="audit-block__title">{tx.team_a_id}: {t.depthChartAfter[lang]}</h4>
           <DepthChartTable slots={payload.preview.depth_chart_after.slots} lang={lang} />
         </section>
       )}
 
-      {/* Roster need after */}
+      {/* Team A roster need after */}
       {payload.preview.roster_need_after && (
         <section className="audit-block">
-          <h4 className="audit-block__title">{t.rosterNeedAfter[lang]}</h4>
+          <h4 className="audit-block__title">{tx.team_a_id}: {t.rosterNeedAfter[lang]}</h4>
           <RosterNeedList needs={payload.preview.roster_need_after.needs} lang={lang} />
+        </section>
+      )}
+
+      {/* Team B cap summary before / after (M7-C) */}
+      {vr.team_b_cap_summary_before && vr.team_b_cap_summary_after && (
+        <section className="audit-block">
+          <h4 className="audit-block__title">{tx.team_b_id}: {t.capBefore[lang]} / {t.capAfter[lang]}</h4>
+          <div className="cap-summary-grid">
+            <CapSummaryCard summary={vr.team_b_cap_summary_before} lang={lang} label={t.capBefore[lang]} />
+            <CapSummaryCard summary={vr.team_b_cap_summary_after} lang={lang} label={t.capAfter[lang]} />
+          </div>
+        </section>
+      )}
+
+      {/* Team B depth chart after (M7-C) */}
+      {payload.preview.team_b_depth_chart_after && (
+        <section className="audit-block">
+          <h4 className="audit-block__title">{tx.team_b_id}: {t.depthChartAfter[lang]}</h4>
+          <DepthChartTable slots={payload.preview.team_b_depth_chart_after.slots} lang={lang} />
+        </section>
+      )}
+
+      {/* Team B roster need after (M7-C) */}
+      {payload.preview.team_b_roster_need_after && (
+        <section className="audit-block">
+          <h4 className="audit-block__title">{tx.team_b_id}: {t.rosterNeedAfter[lang]}</h4>
+          <RosterNeedList needs={payload.preview.team_b_roster_need_after.needs} lang={lang} />
         </section>
       )}
 
@@ -496,28 +572,21 @@ export default function TradePreviewViewer({ payload, lang }: TradePreviewViewer
         </div>
       </section>
 
-      {/* Post-trade impact */}
+      {/* Two-team post-trade view (M7-C) */}
       <section className="section">
-        <h3 className="section__title">{t.impactTitle[lang]}</h3>
-        <div className="impact-grid">
-          {payload.roster_impact_summary && (
-            <div className="impact-card">
-              <p className="impact-card__label">{t.rosterImpactLabel[lang]}</p>
-              <p className="impact-card__body">{payload.roster_impact_summary}</p>
-            </div>
-          )}
-          {payload.depth_chart_impact_summary && (
-            <div className="impact-card">
-              <p className="impact-card__label">{t.depthChartImpactLabel[lang]}</p>
-              <p className="impact-card__body">{payload.depth_chart_impact_summary}</p>
-            </div>
-          )}
-          {payload.cap_impact_summary && (
-            <div className="impact-card">
-              <p className="impact-card__label">{t.capImpactLabel[lang]}</p>
-              <p className="impact-card__body">{payload.cap_impact_summary}</p>
-            </div>
-          )}
+        <h3 className="section__title">{t.twoTeamViewTitle[lang]}</h3>
+        <p className="section__hint">{t.twoTeamViewHint[lang]}</p>
+        <div className="two-team-grid">
+          <TeamPostTradeCard
+            data={payload.team_a_post_trade}
+            lang={lang}
+            label={t.teamPostTradeTitle[lang].replace("{team}", payload.team_a_post_trade.team_id)}
+          />
+          <TeamPostTradeCard
+            data={payload.team_b_post_trade}
+            lang={lang}
+            label={t.teamPostTradeTitle[lang].replace("{team}", payload.team_b_post_trade.team_id)}
+          />
         </div>
       </section>
 
@@ -540,7 +609,10 @@ export default function TradePreviewViewer({ payload, lang }: TradePreviewViewer
             <p className="risk-card__plain" lang={lang}>{t.riskSalaryUp[lang]}</p>
           </li>
           <li className="risk-card risk-card--medium">
-            <p className="risk-card__plain" lang={lang}>{t.riskTeamBDeferred[lang]}</p>
+            <p className="risk-card__plain" lang={lang}>{t.riskTeamBCGap[lang]}</p>
+          </li>
+          <li className="risk-card risk-card--low">
+            <p className="risk-card__plain" lang={lang}>{t.riskTeamBSalaryDown[lang]}</p>
           </li>
           <li className="risk-card risk-card--low">
             <p className="risk-card__plain" lang={lang}>{t.riskSampleData[lang]}</p>

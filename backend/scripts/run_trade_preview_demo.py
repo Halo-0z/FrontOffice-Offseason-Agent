@@ -195,6 +195,12 @@ def _serialize_validation_result(vr) -> Dict[str, Any]:
         "warnings": [_serialize_issue(w) for w in vr.warnings],
         "cap_summary_before": _serialize_cap_summary(vr.cap_summary_before),
         "cap_summary_after": _serialize_cap_summary(vr.cap_summary_after),
+        "team_b_cap_summary_before": _serialize_cap_summary(
+            getattr(vr, "team_b_cap_summary_before", None)
+        ),
+        "team_b_cap_summary_after": _serialize_cap_summary(
+            getattr(vr, "team_b_cap_summary_after", None)
+        ),
         "evidence_ids": list(vr.evidence_ids),
         "requires_human_approval": vr.requires_human_approval,
         "limitations": list(vr.limitations),
@@ -285,12 +291,79 @@ def _serialize_trade_transaction(tx) -> Dict[str, Any]:
     }
 
 
+def _build_team_post_trade(
+    team_id: str,
+    cap_summary_after,
+    roster_need_after,
+    depth_chart_after,
+    cap_summary_before=None,
+) -> Dict[str, Any]:
+    """Build a per-team post-trade preview block (M7-C).
+
+    Centralizes the shape so Team A and Team B use the same structure.
+    All fields are optional (``None`` when validation failed or a
+    profile was missing) so the caller can render a clear fallback.
+    """
+    block: Dict[str, Any] = {
+        "team_id": team_id,
+        "cap_summary_before": _serialize_cap_summary(cap_summary_before),
+        "cap_summary_after": _serialize_cap_summary(cap_summary_after),
+        "roster_need_after": _serialize_roster_need_report(roster_need_after),
+        "depth_chart_after": _serialize_depth_chart(depth_chart_after),
+    }
+
+    # Roster impact summary
+    if roster_need_after is not None:
+        needs_count = len(roster_need_after.needs)
+        strengths_count = len(roster_need_after.strengths)
+        block["roster_impact_summary"] = (
+            f"Team ({team_id}) post-trade roster: "
+            f"{roster_need_after.roster_count} players, "
+            f"{needs_count} position need(s), "
+            f"{strengths_count} position strength(s)."
+        )
+    else:
+        block["roster_impact_summary"] = None
+
+    # Depth chart impact summary
+    if depth_chart_after is not None:
+        filled_slots = sum(
+            1 for s in depth_chart_after.slots if s.starter is not None
+        )
+        block["depth_chart_impact_summary"] = (
+            f"Team ({team_id}) post-trade depth chart: "
+            f"{filled_slots}/{len(depth_chart_after.slots)} "
+            f"positions with a starter."
+        )
+    else:
+        block["depth_chart_impact_summary"] = None
+
+    # Cap impact summary
+    if cap_summary_after is not None:
+        block["cap_impact_summary"] = (
+            f"Team ({team_id}) post-trade total_salary: "
+            f"${cap_summary_after.total_salary:,}, "
+            f"cap_space: ${cap_summary_after.cap_space:,}."
+        )
+    else:
+        block["cap_impact_summary"] = None
+
+    return block
+
+
 def build_trade_preview_payload(data_dir: Path | str = "data") -> Dict[str, Any]:
     """Build a stable JSON-serializable trade preview payload.
 
     Constructs the demo trade, runs ``trade_simulator.preview_trade``,
     and serializes the full result. Does NOT call any LLM, does NOT use
     MCP, does NOT write to disk, does NOT approve the trade.
+
+    M7-C: the payload now includes ``team_a_post_trade`` and
+    ``team_b_post_trade`` blocks, each containing the team's post-trade
+    cap summary, roster need, and depth chart. The legacy top-level
+    ``roster_impact_summary`` / ``depth_chart_impact_summary`` /
+    ``cap_impact_summary`` fields are kept (they describe Team A) for
+    backward compatibility.
     """
     from backend.app.services.trade_simulator import preview_trade
 
@@ -321,38 +394,27 @@ def build_trade_preview_payload(data_dir: Path | str = "data") -> Dict[str, Any]
         },
     }
 
-    # Roster impact summary (team A focus, matching preview_trade behavior).
-    roster_impact_summary = None
-    if preview.roster_need_after is not None:
-        needs_count = len(preview.roster_need_after.needs)
-        strengths_count = len(preview.roster_need_after.strengths)
-        roster_impact_summary = (
-            f"Team A ({trade.team_a_id}) post-trade roster: "
-            f"{preview.roster_need_after.roster_count} players, "
-            f"{needs_count} position need(s), "
-            f"{strengths_count} position strength(s)."
-        )
+    # M7-C: per-team post-trade blocks. Both teams use the same shape.
+    vr = preview.validation_result
+    team_a_post_trade = _build_team_post_trade(
+        team_id=trade.team_a_id,
+        cap_summary_before=vr.cap_summary_before,
+        cap_summary_after=preview.cap_summary_after,
+        roster_need_after=preview.roster_need_after,
+        depth_chart_after=preview.depth_chart_after,
+    )
+    team_b_post_trade = _build_team_post_trade(
+        team_id=trade.team_b_id,
+        cap_summary_before=vr.team_b_cap_summary_before,
+        cap_summary_after=preview.team_b_cap_summary_after,
+        roster_need_after=preview.team_b_roster_need_after,
+        depth_chart_after=preview.team_b_depth_chart_after,
+    )
 
-    # Depth chart impact summary.
-    depth_chart_impact_summary = None
-    if preview.depth_chart_after is not None:
-        filled_slots = sum(
-            1 for s in preview.depth_chart_after.slots if s.starter is not None
-        )
-        depth_chart_impact_summary = (
-            f"Team A ({trade.team_a_id}) post-trade depth chart: "
-            f"{filled_slots}/{len(preview.depth_chart_after.slots)} "
-            f"positions with a starter."
-        )
-
-    # Cap impact summary.
-    cap_impact_summary = None
-    if preview.cap_summary_after is not None:
-        cap_impact_summary = (
-            f"Team A ({trade.team_a_id}) post-trade total_salary: "
-            f"${preview.cap_summary_after.total_salary:,}, "
-            f"cap_space: ${preview.cap_summary_after.cap_space:,}."
-        )
+    # Legacy top-level summaries (Team A only) kept for backward compat.
+    roster_impact_summary = team_a_post_trade["roster_impact_summary"]
+    depth_chart_impact_summary = team_a_post_trade["depth_chart_impact_summary"]
+    cap_impact_summary = team_a_post_trade["cap_impact_summary"]
 
     return {
         "trade_transaction": _serialize_trade_transaction(trade),
@@ -370,10 +432,21 @@ def build_trade_preview_payload(data_dir: Path | str = "data") -> Dict[str, Any]
             "cap_summary_after": _serialize_cap_summary(
                 preview.cap_summary_after
             ),
+            "team_b_roster_need_after": _serialize_roster_need_report(
+                preview.team_b_roster_need_after
+            ),
+            "team_b_depth_chart_after": _serialize_depth_chart(
+                preview.team_b_depth_chart_after
+            ),
+            "team_b_cap_summary_after": _serialize_cap_summary(
+                preview.team_b_cap_summary_after
+            ),
             "requires_human_approval": preview.requires_human_approval,
             "limitations": list(preview.limitations),
         },
         "salary_matching": salary_matching,
+        "team_a_post_trade": team_a_post_trade,
+        "team_b_post_trade": team_b_post_trade,
         "roster_impact_summary": roster_impact_summary,
         "depth_chart_impact_summary": depth_chart_impact_summary,
         "cap_impact_summary": cap_impact_summary,

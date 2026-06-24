@@ -443,6 +443,8 @@ def validate_trade(
     # Only compute if both teams loaded successfully.
     cap_summary_before: CapSheetSummary | None = None
     cap_summary_after: CapSheetSummary | None = None
+    team_b_cap_summary_before: CapSheetSummary | None = None
+    team_b_cap_summary_after: CapSheetSummary | None = None
     if transaction.team_a_id in team_ids and transaction.team_b_id in team_ids:
         try:
             sheet_a = load_team_cap_sheet(transaction.team_a_id, data_dir)
@@ -503,6 +505,10 @@ def validate_trade(
             summary_b_after = summarize_cap_sheet(preview_b)
 
             cap_summary_after = summary_a_after
+            # M7-C: also expose Team B's cap summaries so the preview
+            # layer can show both teams' post-trade cap impact.
+            team_b_cap_summary_before = summary_b_before
+            team_b_cap_summary_after = summary_b_after
 
             issues.extend(
                 _validate_roster_slots(
@@ -555,6 +561,8 @@ def validate_trade(
         warnings=warnings,
         cap_summary_before=cap_summary_before,
         cap_summary_after=cap_summary_after,
+        team_b_cap_summary_before=team_b_cap_summary_before,
+        team_b_cap_summary_after=team_b_cap_summary_after,
         evidence_ids=transaction.evidence_ids,
         requires_human_approval=True,
         limitations=_MVP_LIMITATIONS,

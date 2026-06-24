@@ -1141,6 +1141,9 @@ body {
   .impact-grid {
     grid-template-columns: 1fr;
   }
+  .two-team-grid {
+    grid-template-columns: 1fr;
+  }
   .salary-match-detail {
     grid-template-columns: 1fr;
   }
@@ -1361,6 +1364,37 @@ body {
   color: var(--ink);
   margin: 0;
   line-height: 1.4;
+}
+
+/* M7-C: Two-team post-trade view */
+.two-team-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-sm);
+}
+
+.team-post-trade-card {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.team-post-trade-card__label {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+
+.team-post-trade-card__impacts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
 /* Approval reminder */

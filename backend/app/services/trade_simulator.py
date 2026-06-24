@@ -330,14 +330,16 @@ def preview_trade(
     ``data/players.json``:
 
     - If ALL incoming player profiles are found, builds in-memory
-      post-trade rosters using the real ``name`` / ``position`` /
-      ``role``, and computes team A's roster-need report and depth
-      chart as the preview (team B's is deferred).
+      post-trade rosters for BOTH teams using the real ``name`` /
+      ``position`` / ``role``, and computes each team's roster-need
+      report, depth chart, and cap summary. (M7-C: Team B is no longer
+      deferred.)
     - If ANY incoming player profile is missing, refuses to hardcode a
-      default position: ``roster_need_after`` and ``depth_chart_after``
-      are set to ``None`` and a fallback note is added to
-      ``limitations``. This conservative behavior avoids producing a
-      misleading depth chart when some incoming positions are unknown.
+      default position: ``roster_need_after`` / ``depth_chart_after``
+      (and the Team B equivalents) are set to ``None`` and a fallback
+      note is added to ``limitations``. This conservative behavior
+      avoids producing a misleading depth chart when some incoming
+      positions are unknown.
     """
     validation = validate_transaction(transaction, data_dir)
     limitations: List[str] = list(_MVP_LIMITATIONS)
@@ -353,11 +355,14 @@ def preview_trade(
             roster_need_after=None,
             depth_chart_after=None,
             cap_summary_after=validation.cap_summary_after,
+            team_b_roster_need_after=None,
+            team_b_depth_chart_after=None,
+            team_b_cap_summary_after=validation.team_b_cap_summary_after,
             requires_human_approval=True,
             limitations=tuple(limitations),
         )
 
-    preview_a, _preview_b, all_profiles_found = _preview_trade_rosters(
+    preview_a, preview_b, all_profiles_found = _preview_trade_rosters(
         transaction, data_dir
     )
     if not all_profiles_found:
@@ -370,25 +375,39 @@ def preview_trade(
             roster_need_after=None,
             depth_chart_after=None,
             cap_summary_after=validation.cap_summary_after,
+            team_b_roster_need_after=None,
+            team_b_depth_chart_after=None,
+            team_b_cap_summary_after=validation.team_b_cap_summary_after,
             requires_human_approval=True,
             limitations=tuple(limitations),
         )
 
+    # Team A post-trade projections (kept under the original field names
+    # for backward compatibility).
     roster_need_after = _evaluate_needs_from_players(
         transaction.team_a_id, preview_a
     )
     depth_chart_after = build_depth_chart_from_players(
         transaction.team_a_id, preview_a
     )
-    limitations.append(
-        "Preview reflects team A's post-trade roster; team B's preview is deferred."
+
+    # M7-C: Team B post-trade projections.
+    team_b_roster_need_after = _evaluate_needs_from_players(
+        transaction.team_b_id, preview_b
     )
+    team_b_depth_chart_after = build_depth_chart_from_players(
+        transaction.team_b_id, preview_b
+    )
+
     return TransactionPreview(
         transaction_id=transaction.transaction_id,
         validation_result=validation,
         roster_need_after=roster_need_after,
         depth_chart_after=depth_chart_after,
         cap_summary_after=validation.cap_summary_after,
+        team_b_roster_need_after=team_b_roster_need_after,
+        team_b_depth_chart_after=team_b_depth_chart_after,
+        team_b_cap_summary_after=validation.team_b_cap_summary_after,
         requires_human_approval=True,
         limitations=tuple(limitations),
     )
