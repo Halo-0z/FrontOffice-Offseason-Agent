@@ -1,0 +1,9 @@
+{
+  "snapshot_id": "valid_m8b_small",
+  "snapshot_type": "test_fixture",
+  "source_name": "m8b_test_fixture",
+  "source_url": "https://example.com/m8b-test",
+  "as_of_date": "2026-07-01",
+  "description": "Synthetic M8-B test fixture. Not real NBA data.",
+  "sample_data": false
+}

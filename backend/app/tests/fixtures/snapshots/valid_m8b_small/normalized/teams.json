@@ -1,0 +1,25 @@
+{
+  "sample_data": false,
+  "teams": [
+    {
+      "team_id": "SNAP-AAA",
+      "name": "Snapshot Team Alpha",
+      "abbreviation": "STA",
+      "market": "Alpha City",
+      "sample_data": false,
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    },
+    {
+      "team_id": "SNAP-BBB",
+      "name": "Snapshot Team Bravo",
+      "abbreviation": "STB",
+      "market": "Bravo City",
+      "sample_data": false,
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    }
+  ]
+}

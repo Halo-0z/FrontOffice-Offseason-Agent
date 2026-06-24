@@ -10,6 +10,8 @@ Submodules (M1+):
 - ``depth_chart_projector``     : post-transaction depth chart projection.
 - ``evidence_service``          : evidence note retrieval and citation.
 - ``offseason_agent``           : task decomposition + tool orchestration.
+- ``snapshot_validator``        : (M8-B) snapshot bundle structural validation.
+- ``snapshot_loader``           : (M8-B) snapshot bundle loading + provenance.
 
 M0 scope: package docstring only. No logic.
 """
@@ -23,4 +25,6 @@ __all__ = [
     "depth_chart_projector",
     "evidence_service",
     "offseason_agent",
+    "snapshot_validator",
+    "snapshot_loader",
 ]

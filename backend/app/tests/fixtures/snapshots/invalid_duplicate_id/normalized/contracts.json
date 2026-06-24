@@ -1,0 +1,1 @@
+{"sample_data": false, "contracts": [{"contract_id": "sct-001", "player_id": "sp-001", "team_id": "SNAP-AAA", "salary": 25000000, "years_remaining": 2, "guaranteed": true, "sample_data": false, "source_name": "m8b_test_fixture", "source_url": "https://example.com/m8b-test", "as_of_date": "2026-07-01"}]}

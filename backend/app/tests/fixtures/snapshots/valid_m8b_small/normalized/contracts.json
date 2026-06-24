@@ -1,0 +1,65 @@
+{
+  "sample_data": false,
+  "contracts": [
+    {
+      "contract_id": "sct-001",
+      "player_id": "sp-001",
+      "team_id": "SNAP-AAA",
+      "salary": 25000000,
+      "years_remaining": 2,
+      "guaranteed": true,
+      "player_option": false,
+      "team_option": false,
+      "no_trade_clause": false,
+      "sample_data": false,
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    },
+    {
+      "contract_id": "sct-002",
+      "player_id": "sp-002",
+      "team_id": "SNAP-AAA",
+      "salary": 15000000,
+      "years_remaining": 3,
+      "guaranteed": true,
+      "player_option": false,
+      "team_option": false,
+      "no_trade_clause": false,
+      "sample_data": false,
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    },
+    {
+      "contract_id": "sct-003",
+      "player_id": "sp-003",
+      "team_id": "SNAP-BBB",
+      "salary": 28000000,
+      "years_remaining": 2,
+      "guaranteed": true,
+      "player_option": false,
+      "team_option": false,
+      "no_trade_clause": false,
+      "sample_data": false,
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    },
+    {
+      "contract_id": "sct-004",
+      "player_id": "sp-004",
+      "team_id": "SNAP-BBB",
+      "salary": 8000000,
+      "years_remaining": 1,
+      "guaranteed": false,
+      "player_option": false,
+      "team_option": false,
+      "no_trade_clause": false,
+      "sample_data": false,
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    }
+  ]
+}

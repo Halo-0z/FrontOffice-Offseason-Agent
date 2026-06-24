@@ -72,6 +72,11 @@ class EvidenceNote:
     confidence: float = 0.5
     sample_data: bool = True
     metadata: Tuple[Tuple[str, str], ...] = field(default_factory=tuple)
+    # M8-B optional provenance — defaults keep demo mode unchanged.
+    source_name: Optional[str] = None
+    source_url: Optional[str] = None
+    as_of_date: Optional[str] = None
+    manual_review_required: bool = False
 
 
 @dataclass(frozen=True)

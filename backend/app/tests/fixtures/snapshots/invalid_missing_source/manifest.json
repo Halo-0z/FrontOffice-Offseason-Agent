@@ -1,0 +1,1 @@
+{"snapshot_id": "invalid_missing_source", "snapshot_type": "test_fixture", "as_of_date": "2026-07-01", "description": "Invalid fixture: manifest missing source_name", "sample_data": false}

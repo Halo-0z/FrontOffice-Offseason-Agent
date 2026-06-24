@@ -1,0 +1,22 @@
+{
+  "sample_data": false,
+  "evidence_notes": [
+    {
+      "evidence_id": "sev-001",
+      "title": "Snap need: backup PG",
+      "summary": "Synthetic note: team may need a backup PG.",
+      "source": "m8b_test_fixture",
+      "source_type": "internal_simulation",
+      "evidence_type": "roster_context",
+      "team_ids": ["SNAP-AAA"],
+      "player_ids": ["sp-001"],
+      "topics": ["pg_need", "roster"],
+      "confidence": 0.7,
+      "sample_data": false,
+      "metadata": [["analyst", "m8b-test"]],
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    }
+  ]
+}

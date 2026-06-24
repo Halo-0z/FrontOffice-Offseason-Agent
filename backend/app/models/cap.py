@@ -18,7 +18,7 @@ NBA CBA. M1 scope is intentionally narrow: enough to compute
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Tuple
+from typing import Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -38,6 +38,12 @@ class SalaryCapConfig:
         roster_max: Maximum roster size.
         minimum_salary: League minimum salary (single-season).
         mid_level_exception: Non-taxpayer mid-level exception amount.
+        source_name: (M8-B optional provenance) snapshot source label.
+        source_url: (M8-B optional provenance) snapshot source URL.
+        as_of_date: (M8-B optional provenance) ISO date the snapshot is
+            current as of.
+        manual_review_required: (M8-B optional provenance) flag set by
+            the snapshot loader when a row needs manual review.
     """
 
     season: str
@@ -49,6 +55,11 @@ class SalaryCapConfig:
     roster_max: int
     minimum_salary: int
     mid_level_exception: int
+    # M8-B optional provenance — defaults keep demo mode unchanged.
+    source_name: Optional[str] = None
+    source_url: Optional[str] = None
+    as_of_date: Optional[str] = None
+    manual_review_required: bool = False
 
 
 @dataclass(frozen=True)
@@ -78,6 +89,11 @@ class PlayerContract:
     team_option: bool = False
     no_trade_clause: bool = False
     sample_data: bool = False
+    # M8-B optional provenance — defaults keep demo mode unchanged.
+    source_name: Optional[str] = None
+    source_url: Optional[str] = None
+    as_of_date: Optional[str] = None
+    manual_review_required: bool = False
 
 
 @dataclass(frozen=True)

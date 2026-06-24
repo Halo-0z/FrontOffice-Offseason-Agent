@@ -77,6 +77,11 @@ class RosterPlayer:
     contract_id: Optional[str] = None
     salary: Optional[int] = None
     sample_data: bool = False
+    # M8-B optional provenance — defaults keep demo mode unchanged.
+    source_name: Optional[str] = None
+    source_url: Optional[str] = None
+    as_of_date: Optional[str] = None
+    manual_review_required: bool = False
 
 
 @dataclass(frozen=True)

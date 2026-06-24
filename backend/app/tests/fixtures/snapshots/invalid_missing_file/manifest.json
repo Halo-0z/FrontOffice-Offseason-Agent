@@ -1,0 +1,9 @@
+{
+  "snapshot_id": "invalid_missing_file",
+  "snapshot_type": "test_fixture",
+  "source_name": "m8b_test_fixture",
+  "source_url": "https://example.com/m8b-test",
+  "as_of_date": "2026-07-01",
+  "description": "Invalid fixture: missing contracts.json",
+  "sample_data": false
+}

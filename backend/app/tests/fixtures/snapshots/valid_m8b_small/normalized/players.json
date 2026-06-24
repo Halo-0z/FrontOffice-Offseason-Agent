@@ -1,0 +1,49 @@
+{
+  "sample_data": false,
+  "players": [
+    {
+      "player_id": "sp-001",
+      "name": "Snap Player Alpha",
+      "team_id": "SNAP-AAA",
+      "position": "PG",
+      "role": "starter",
+      "sample_data": false,
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    },
+    {
+      "player_id": "sp-002",
+      "name": "Snap Player Bravo",
+      "team_id": "SNAP-AAA",
+      "position": "SG",
+      "role": "starter",
+      "sample_data": false,
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    },
+    {
+      "player_id": "sp-003",
+      "name": "Snap Player Charlie",
+      "team_id": "SNAP-BBB",
+      "position": "C",
+      "role": "starter",
+      "sample_data": false,
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    },
+    {
+      "player_id": "sp-004",
+      "name": "Snap Player Delta",
+      "team_id": "SNAP-BBB",
+      "position": "PF",
+      "role": "bench",
+      "sample_data": false,
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "sample_data": false,
+  "free_agents": [
+    {
+      "free_agent_id": "sfa-001",
+      "player_id": "sp-001",
+      "name": "Snap Player Alpha",
+      "position": "PG",
+      "expected_salary": 12000000,
+      "role": "starter",
+      "evidence_ids": ["sev-001"],
+      "sample_data": false,
+      "source_name": "m8b_test_fixture",
+      "source_url": "https://example.com/m8b-test",
+      "as_of_date": "2026-07-01"
+    }
+  ]
+}
