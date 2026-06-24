@@ -247,6 +247,7 @@ The project enforces hard boundaries that are covered by
 | M7-B | Frontend API integration (API-first + fallback) | done (tag `m7b-frontend-api-integration`) |
 | M7-C | Full two-team trade preview (Team A + Team B) | done (tag `m7c-full-two-team-trade-preview`) |
 | M7-D | Final API console smoke runbook / release polish | this milestone (docs only) |
+| M8-A | Real NBA data ingestion design (directory, schema, manifest, validation, fallback; design only) | this milestone (docs only) |
 
 > Status note: M0–M7-C are implemented as a deterministic local
 > backend with a CLI demo, a FastAPI API, and an API-first Next.js
@@ -318,6 +319,8 @@ docs/              # architecture, agent-workflow, evaluation, demo-runbook, pro
   final release snapshot for the M5-D submission package.
 - [docs/submission-checklist.md](docs/submission-checklist.md) —
   canonical "is the project ready to submit" gate.
+- [docs/real-data-ingestion-design-m8-a.md](docs/real-data-ingestion-design-m8-a.md) —
+  M8-A: Real NBA data ingestion design (directory structure, schema, manifest, validation, fallback, guardrails; design only, no implementation).
 
 ## Non-Goals
 
