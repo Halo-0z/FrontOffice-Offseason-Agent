@@ -126,6 +126,37 @@ API boundaries:
 - **No transaction execution** — the API never approves, executes, or
   persists a signing or trade.
 
+### Run the frontend (M7-B API-first console)
+
+The `/offseason` page is now **API-first**: clicking "generate" calls
+the local FastAPI backend. If the backend is unavailable, the page
+falls back to the static sample payloads and shows a clear banner.
+
+```powershell
+# Terminal 1: start the backend API
+cd D:\FrontOffice-Offseason-Agent
+D:\anaconda\python.exe -m uvicorn backend.app.api:app --reload
+
+# Terminal 2: start the frontend dev server
+cd D:\FrontOffice-Offseason-Agent\frontend
+npm run dev
+```
+
+Open `http://localhost:3000/offseason` in a browser.
+
+Optional env (override the backend URL the frontend calls):
+
+```powershell
+# PowerShell, in the frontend terminal before `npm run dev`
+$env:NEXT_PUBLIC_API_BASE_URL = "http://127.0.0.1:8000"
+npm run dev
+```
+
+If the backend is not running, the page shows a yellow "backend API
+unavailable" banner and renders the local static sample payload instead.
+The API and the static payloads are both sample / simulation data —
+not real NBA data, not a prediction, not an approved transaction.
+
 ## Demo Scenarios
 
 | Scenario | Command (abbreviated) | Expected result |

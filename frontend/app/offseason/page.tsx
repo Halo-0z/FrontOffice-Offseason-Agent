@@ -1,85 +1,197 @@
 "use client";
 
 /**
- * Offseason Agent Console page — M6-D three-mode console.
+ * Offseason Agent Console page — M7-B API-first three-mode console.
  *
  * Three scenario modes:
  *   1. "signing"  — $20M budget, default recommendation (SIGNING)
  *   2. "hold"     — $15M budget, strict-budget fallback (HOLD)
  *   3. "trade"    — two-team trade preview (PASS, post-trade depth chart)
  *
- * The user picks a mode, clicks "generate", a short setTimeout simulates
- * an agent run, a progress timeline marks all steps complete, and the
- * corresponding static sample payload is shown in the output region.
- * Audit details are collapsed below.
+ * API-first behavior (M7-B):
+ *   - Clicking "generate" calls the local FastAPI backend (M7-A).
+ *   - signing/hold -> POST /api/offseason/proposal-preview
+ *   - trade        -> GET  /api/offseason/trade-preview-demo
+ *   - On any API failure (network, timeout, non-2xx, invalid JSON),
+ *     the page falls back to the existing static sample payloads and
+ *     shows a clear "backend unavailable" banner.
+ *   - The page never crashes on API failure.
  *
- * Static interaction only:
- *   - no fetch, no API call, no network
- *   - switches between three existing static payloads
- *   - does not modify payload content
+ * Guardrails (unchanged from M6-D):
+ *   - sample / simulation data only
+ *   - no real NBA API, no LLM, no MCP
+ *   - preview only — never approves or executes a transaction
+ *   - no data writes
+ *   - requires_human_approval is always true
  *
  * Default language is Chinese; a toggle in the top-right switches UI
  * copy to English.
  *
- * Milestone: M6-D (Static Trade Preview Scenario).
+ * Milestone: M7-B (Frontend API Integration).
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ProposalViewer from "../../components/ProposalViewer";
 import TradePreviewViewer from "../../components/TradePreviewViewer";
 import { scenarios } from "../../data/demoProposalPayload";
 import { demoTradePayload } from "../../data/demoTradePreviewPayload";
 import { copy, type Lang } from "../../data/i18n";
+import {
+  ApiError,
+  DEMO_PROPOSAL_REQUESTS,
+  fetchProposalPreview,
+  fetchTradePreviewDemo,
+  type ProposalPreviewParams,
+} from "../../lib/apiClient";
+import type { DemoPayload } from "../../data/demoProposalPayload";
+import type { DemoTradePayload } from "../../data/demoTradePreviewPayload";
 
 type Mode = "signing" | "hold" | "trade";
 type RunState = "idle" | "running" | "complete";
+/** Where the currently-displayed payload came from. */
+type DataSource = "api" | "fallback";
+
+interface RunResult {
+  mode: Mode;
+  source: DataSource;
+  /** Present when source === "fallback" to explain why API failed. */
+  fallbackReason?: string;
+  /** Proposal payload (signing/hold modes). */
+  proposal: DemoPayload | null;
+  /** Trade payload (trade mode). */
+  trade: DemoTradePayload | null;
+}
 
 function modeToScenarioId(mode: Mode): string {
   return mode === "signing" ? "default" : "strict-budget";
+}
+
+/**
+ * Look up the static fallback payload for a mode. Used when the API
+ * call fails. The static payloads are never deleted — they are the
+ * safety net that keeps the page working offline.
+ */
+function getStaticFallback(mode: Mode): {
+  proposal: DemoPayload | null;
+  trade: DemoTradePayload | null;
+} {
+  if (mode === "trade") {
+    return { proposal: null, trade: demoTradePayload };
+  }
+  const scenarioId = modeToScenarioId(mode);
+  const scenario = scenarios.find((s) => s.id === scenarioId);
+  return { proposal: scenario?.payload ?? null, trade: null };
+}
+
+/** Human-readable reason for an ApiError, localized. */
+function explainApiError(err: ApiError, lang: Lang): string {
+  const kind = err.kind;
+  if (lang === "zh") {
+    switch (kind) {
+      case "network":
+        return `无法连接后端 API（${err.url}）。请确认 uvicorn 已启动。`;
+      case "timeout":
+        return `后端 API 请求超时（${err.url}）。`;
+      case "non-2xx":
+        return `后端 API 返回非 2xx 状态码（${err.status ?? "?"} ${err.url}）。`;
+      case "invalid-json":
+        return `后端 API 返回的 JSON 无法解析（${err.url}）。`;
+      default:
+        return `后端 API 调用失败：${err.message}`;
+    }
+  }
+  switch (kind) {
+    case "network":
+      return `Cannot reach backend API (${err.url}). Is uvicorn running?`;
+    case "timeout":
+      return `Backend API request timed out (${err.url}).`;
+    case "non-2xx":
+      return `Backend API returned non-2xx status (${err.status ?? "?"} ${err.url}).`;
+    case "invalid-json":
+      return `Backend API returned invalid JSON (${err.url}).`;
+    default:
+      return `Backend API call failed: ${err.message}`;
+  }
 }
 
 export default function OffseasonPage() {
   const [lang, setLang] = useState<Lang>("zh");
   const [mode, setMode] = useState<Mode>("signing");
   const [runState, setRunState] = useState<RunState>("idle");
-  const [completedMode, setCompletedMode] = useState<Mode | null>(null);
+  const [result, setResult] = useState<RunResult | null>(null);
 
-  // The payload shown in the output region only appears after the user
-  // clicks generate and the simulated run completes.
-  const completedScenarioId =
-    completedMode !== null && completedMode !== "trade"
-      ? modeToScenarioId(completedMode)
-      : null;
-  const completedScenario =
-    scenarios.find((s) => s.id === completedScenarioId) ?? null;
-  const completedTrade =
-    completedMode === "trade" ? demoTradePayload : null;
-
-  function handleGenerate() {
+  /**
+   * Generate handler: API-first with static fallback.
+   *
+   * Flow:
+   *   1. Enter "running" state.
+   *   2. Call the appropriate API endpoint for the current mode.
+   *   3a. On success: store the API payload with source="api".
+   *   3b. On any failure: store the static fallback payload with
+   *       source="fallback" and a human-readable reason. The page
+   *       never crashes.
+   *   4. Enter "complete" state.
+   */
+  const handleGenerate = useCallback(async () => {
     if (runState === "running") return;
     setRunState("running");
-    // Simulate a short agent run. No real async work, no API call.
-    window.setTimeout(() => {
-      setCompletedMode(mode);
-      setRunState("complete");
-    }, 450);
-  }
+
+    const currentMode = mode;
+    let apiResult: RunResult;
+
+    try {
+      if (currentMode === "trade") {
+        const trade = await fetchTradePreviewDemo();
+        apiResult = { mode: currentMode, source: "api", proposal: null, trade };
+      } else {
+        const params: ProposalPreviewParams =
+          currentMode === "signing"
+            ? DEMO_PROPOSAL_REQUESTS.signing
+            : DEMO_PROPOSAL_REQUESTS.hold;
+        const proposal = await fetchProposalPreview(params);
+        apiResult = { mode: currentMode, source: "api", proposal, trade: null };
+      }
+    } catch (err) {
+      // Fallback path: API failed for any reason. Use the static
+      // payload so the page keeps working. Never rethrow.
+      const fallback = getStaticFallback(currentMode);
+      const reason =
+        err instanceof ApiError
+          ? explainApiError(err, lang)
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      apiResult = {
+        mode: currentMode,
+        source: "fallback",
+        fallbackReason: reason,
+        proposal: fallback.proposal,
+        trade: fallback.trade,
+      };
+    }
+
+    setResult(apiResult);
+    setRunState("complete");
+  }, [runState, mode, lang]);
 
   // Reset to idle when the user changes the mode so they re-generate.
+  // This prevents showing a stale result from a different mode.
   useEffect(() => {
-    if (completedMode !== null && completedMode !== mode) {
+    if (result !== null && result.mode !== mode) {
       setRunState("idle");
+      setResult(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
   const c = copy.console;
   const cm = copy.consoleModes;
-  const isHold = completedScenario?.id === "strict-budget";
+  const ds = copy.dataSource;
+  const isHold = result?.mode !== "trade" && result?.proposal?.proposal.status === "NO_ACTION";
 
   // Progress steps differ slightly for trade mode.
   const steps =
-    completedMode === "trade"
+    result?.mode === "trade"
       ? [
           { zh: "读取两队薪资空间", en: "Read both teams' cap space" },
           { zh: "构造交易资产", en: "Build trade assets" },
@@ -236,7 +348,7 @@ export default function OffseasonPage() {
               {runState === "idle"
                 ? c.stateIdle[lang]
                 : runState === "running"
-                  ? c.stateRunning[lang]
+                  ? ds.loadingApi[lang]
                   : c.stateComplete[lang]}
             </span>
           </span>
@@ -271,14 +383,37 @@ export default function OffseasonPage() {
         </section>
       )}
 
+      {/* Data source indicator (only after a run completes) */}
+      {runState === "complete" && result && (
+        <div
+          className={`data-source-badge data-source-badge--${result.source}`}
+          role="status"
+        >
+          {result.source === "api" ? ds.apiLabel[lang] : ds.fallbackLabel[lang]}
+        </div>
+      )}
+
+      {/* Fallback banner (only when API failed and we fell back) */}
+      {runState === "complete" && result?.source === "fallback" && (
+        <div className="fallback-banner" role="alert">
+          <strong>{ds.fallbackBanner[lang]}</strong>
+          {result.fallbackReason && (
+            <p className="fallback-banner__reason">
+              {ds.fallbackReason[lang]}
+              {result.fallbackReason}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Output region */}
-      {runState === "complete" && completedMode === "trade" && completedTrade ? (
+      {runState === "complete" && result?.mode === "trade" && result.trade ? (
         <section className="output-region" aria-label={copy.trade.outputHeadline[lang]}>
           <h2 className="section__title">{copy.console.outputTitle[lang]}</h2>
           <p className="output-headline">{copy.trade.outputHeadline[lang]}</p>
-          <TradePreviewViewer payload={completedTrade} lang={lang} />
+          <TradePreviewViewer payload={result.trade} lang={lang} />
         </section>
-      ) : runState === "complete" && completedScenario ? (
+      ) : runState === "complete" && result?.proposal ? (
         <section className="output-region" aria-label={c.outputTitle[lang]}>
           <h2 className="section__title">{c.outputTitle[lang]}</h2>
           <p
@@ -287,7 +422,7 @@ export default function OffseasonPage() {
             {isHold ? c.outputStrict[lang] : c.outputDefault[lang]}
           </p>
           <ProposalViewer
-            payload={completedScenario.payload}
+            payload={result.proposal}
             lang={lang}
             variant="console"
           />
@@ -313,6 +448,10 @@ export default function OffseasonPage() {
           {"  ·  "}
           <code>
             python backend/scripts/run_trade_preview_demo.py --format json
+          </code>
+          {"  ·  "}
+          <code>
+            uvicorn backend.app.api:app --reload
           </code>
         </p>
       </footer>

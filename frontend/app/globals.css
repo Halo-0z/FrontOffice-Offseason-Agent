@@ -644,6 +644,60 @@ body {
   color: oklch(0.3 0.12 60);
 }
 
+/* ---- Data source badge (M7-B) ---- */
+.data-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0.25rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  margin-bottom: var(--space-sm);
+}
+
+.data-source-badge--api {
+  background: var(--ok-soft);
+  color: oklch(0.38 0.1 145);
+  border-color: oklch(0.8 0.08 145);
+}
+
+.data-source-badge--fallback {
+  background: var(--warn-soft);
+  color: oklch(0.4 0.1 80);
+  border-color: oklch(0.8 0.08 80);
+}
+
+/* ---- Fallback banner (M7-B) ---- */
+.fallback-banner {
+  background: var(--warn-soft);
+  border: 1px solid oklch(0.8 0.08 80);
+  border-left: 4px solid var(--warn);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-lg);
+  font-size: 0.88rem;
+  color: oklch(0.35 0.1 80);
+}
+
+.fallback-banner strong {
+  color: oklch(0.3 0.12 60);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.fallback-banner__reason {
+  font-size: 0.8rem;
+  color: oklch(0.4 0.08 60);
+  margin: 0;
+  font-family: var(--font-mono);
+  word-break: break-word;
+  line-height: 1.4;
+}
+
 /* ---- Responsive: tables become lists on narrow screens ---- */
 @media (max-width: 600px) {
   .scenario-tabs {

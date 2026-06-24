@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 
@@ -115,6 +116,30 @@ app = FastAPI(
         "human approval."
     ),
     version="0.7.0",
+)
+
+
+# --------------------------------------------------------------------------- #
+# CORS (M7-B)
+# --------------------------------------------------------------------------- #
+# The Next.js dev server runs on localhost:3000 while the FastAPI dev
+# server runs on localhost:8000, so browser fetches are cross-origin.
+# We allow only the two local dev origins — never "*" — so the API
+# stays reachable for local development without opening it up to any
+# origin. This is middleware only; it does not change any business
+# logic or endpoint behavior.
+
+_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Accept", "Content-Type"],
 )
 
 

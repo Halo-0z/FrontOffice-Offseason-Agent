@@ -54,8 +54,8 @@ export const copy = {
     eyebrow: { zh: "Offseason Plan Console", en: "Offseason Plan Console" } as Bilingual,
     title: { zh: "休赛期方案生成工作台", en: "Offseason Plan Console" } as Bilingual,
     lede: {
-      zh: "选择目标和预算，预览系统会如何检查薪资、阵容需求、候选人和规则，最后生成一个可审计的休赛期方案。这是一个静态 demo：点击生成会在三份本地样例结果之间切换，不调用后端 API。",
-      en: "Pick a target and budget, then preview how the system checks cap space, roster needs, candidates, and rules to produce an auditable offseason plan. This is a static demo: clicking generate switches between three local sample results — no backend API call.",
+      zh: "选择目标和预算，预览系统会如何检查薪资、阵容需求、候选人和规则，最后生成一个可审计的休赛期方案。API 优先演示：点击生成会优先调用本地后端 API；如果后端未启动，会自动显示本地静态样例结果。",
+      en: "Pick a target and budget, then preview how the system checks cap space, roster needs, candidates, and rules to produce an auditable offseason plan. API-first demo: generation calls the local backend API first; if the backend is unavailable, the page falls back to local sample payloads.",
     } as Bilingual,
     badges: {
       sample: { zh: "样例数据", en: "sample data" } as Bilingual,
@@ -72,8 +72,8 @@ export const copy = {
     // Input panel
     inputTitle: { zh: "方案设置", en: "Plan settings" } as Bilingual,
     inputHint: {
-      zh: "当前为静态 demo：点击生成会在三份本地样例结果之间切换，不调用后端 API。",
-      en: "Static demo: clicking generate switches between three local sample results. No backend API call.",
+      zh: "API 优先演示：点击生成会优先调用本地后端 API；如果后端未启动，会自动显示本地静态样例结果。",
+      en: "API-first demo: generation calls the local backend API first; if the backend is unavailable, the page falls back to local sample payloads.",
     } as Bilingual,
     fieldTeam: { zh: "球队", en: "Team" } as Bilingual,
     fieldObjective: { zh: "目标", en: "Objective" } as Bilingual,
@@ -106,8 +106,8 @@ export const copy = {
     // Progress timeline
     progressTitle: { zh: "Agent 执行步骤", en: "Agent execution steps" } as Bilingual,
     progressHint: {
-      zh: "以下是 Agent 按顺序执行的检查流程。本次为静态 demo，点击生成后所有步骤会标记为已完成。",
-      en: "The agent runs these checks in order. This is a static demo — after clicking generate, all steps are marked complete.",
+      zh: "以下是 Agent 按顺序执行的检查流程。点击生成后，前端会优先调用本地后端 API；如果后端不可用，会回退到本地静态样例。",
+      en: "The agent runs these checks in order. After clicking generate, the frontend calls the local backend API first; if the backend is unavailable, it falls back to local static samples.",
     } as Bilingual,
     steps: [
       { zh: "读取球队薪资空间", en: "Read team cap space" } as Bilingual,
@@ -666,11 +666,29 @@ export const copy = {
     noWarnings: { zh: "没有警告。", en: "No warnings." } as Bilingual,
   } as const,
 
+  // ---- Data source / fallback indicators (M7-B) ----
+  dataSource: {
+    apiLabel: { zh: "当前数据来源：后端 API", en: "Data source: backend API" } as Bilingual,
+    fallbackLabel: {
+      zh: "当前数据来源：本地 fallback 样例",
+      en: "Data source: local fallback sample",
+    } as Bilingual,
+    fallbackBanner: {
+      zh: "后端 API 不可用，当前显示本地静态样例结果。",
+      en: "Backend API unavailable; showing local static sample payload.",
+    } as Bilingual,
+    fallbackReason: {
+      zh: "原因：",
+      en: "Reason: ",
+    } as Bilingual,
+    loadingApi: { zh: "正在调用后端 API…", en: "Calling backend API…" } as Bilingual,
+  },
+
   // ---- Footer ----
   footer: {
     body: {
-      zh: "这是一个静态前端查看器。它渲染 CLI JSON 输出的快照，不调用任何后端 API。无 LLM、无 MCP、无外部 NBA API、不修改数据。所有动作都只是预览，需要人工确认。",
-      en: "This is a static frontend viewer. It renders a snapshot of the CLI JSON output and does not call any backend API. No LLM, no MCP, no external NBA API, no data mutation. Every action is a preview that requires human approval.",
+      zh: "API 优先前端：优先调用本地后端 API，后端不可用时回退到本地静态样例。无 LLM、无 MCP、无外部 NBA API、不修改数据。所有动作都只是预览，需要人工确认。",
+      en: "API-first frontend: calls the local backend API first, falls back to local static samples when the backend is unavailable. No LLM, no MCP, no external NBA API, no data mutation. Every action is a preview that requires human approval.",
     } as Bilingual,
     payloadSource: { zh: "数据来源：", en: "Payload source: " } as Bilingual,
   },

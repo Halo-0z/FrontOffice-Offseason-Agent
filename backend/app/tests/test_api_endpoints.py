@@ -79,6 +79,48 @@ def test_health_endpoint(client: TestClient) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# CORS (M7-B)
+# --------------------------------------------------------------------------- #
+
+
+def test_cors_allows_local_dev_origin(client: TestClient) -> None:
+    """Preflight OPTIONS from localhost:3000 must be allowed (M7-B)."""
+    resp = client.options(
+        "/api/health",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "Accept",
+        },
+    )
+    assert resp.status_code in (200, 204)
+    assert resp.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    # allow-credentials must be absent (we set allow_credentials=False).
+    assert "access-control-allow-credentials" not in resp.headers
+
+
+def test_cors_rejects_unknown_origin(client: TestClient) -> None:
+    """An origin not in the allowlist must not get an ACAO header."""
+    resp = client.options(
+        "/api/health",
+        headers={
+            "Origin": "http://evil.example.com",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    # Starlette returns 400 for disallowed origin preflight, or 200 with
+    # no ACAO header. Either way, the key point is: no ACAO header.
+    assert resp.headers.get("access-control-allow-origin") is None
+
+
+def test_cors_simple_get_includes_acao_header(client: TestClient) -> None:
+    """A simple GET with an Origin header must echo the ACAO header."""
+    resp = client.get("/api/health", headers={"Origin": "http://127.0.0.1:3000"})
+    assert resp.status_code == 200
+    assert resp.headers.get("access-control-allow-origin") == "http://127.0.0.1:3000"
+
+
+# --------------------------------------------------------------------------- #
 # Scenarios
 # --------------------------------------------------------------------------- #
 
