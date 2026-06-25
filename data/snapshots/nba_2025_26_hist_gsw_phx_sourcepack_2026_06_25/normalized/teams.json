@@ -1,0 +1,29 @@
+{
+  "sample_data": false,
+  "teams": [
+    {
+      "team_id": "nba-GSW",
+      "name": "Golden State Warriors",
+      "abbreviation": "GSW",
+      "market": "Golden State",
+      "sample_data": false,
+      "manual_review_required": true,
+      "source_name": "NBA.com official team directory",
+      "source_url": "https://www.nba.com/warriors/",
+      "as_of_date": "2026-06-25",
+      "uncertainty_note": "Team identity from NBA.com. Roster and cap details require manual review against primary sources."
+    },
+    {
+      "team_id": "nba-PHX",
+      "name": "Phoenix Suns",
+      "abbreviation": "PHX",
+      "market": "Phoenix",
+      "sample_data": false,
+      "manual_review_required": true,
+      "source_name": "NBA.com official team directory",
+      "source_url": "https://www.nba.com/suns/",
+      "as_of_date": "2026-06-25",
+      "uncertainty_note": "Team identity from NBA.com. Roster and cap details require manual review against primary sources."
+    }
+  ]
+}

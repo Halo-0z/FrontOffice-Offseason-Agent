@@ -1,0 +1,20 @@
+{
+  "sample_data": false,
+  "cap_config": {
+    "season": "2025-2026",
+    "salary_cap": 154647000,
+    "luxury_tax": 187895000,
+    "first_apron": 195945000,
+    "second_apron": 207824000,
+    "roster_min": 14,
+    "roster_max": 15,
+    "minimum_salary": 1272870,
+    "mid_level_exception": 14104000,
+    "sample_data": false,
+    "manual_review_required": true,
+    "source_name": "NBA.com official 2025-26 salary cap announcement",
+    "source_url": "https://www.nba.com/news/nba-salary-cap-set-2025-26-season",
+    "as_of_date": "2025-06-30",
+    "uncertainty_note": "Official cap/tax/apron/MLE values from NBA.com. minimum_salary uses zero-years-of-service minimum salary as MVP scalar and requires manual review. roster_min requires CBA confirmation."
+  }
+}

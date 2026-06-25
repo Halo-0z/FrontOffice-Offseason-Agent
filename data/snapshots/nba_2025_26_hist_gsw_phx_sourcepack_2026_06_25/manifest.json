@@ -1,0 +1,21 @@
+{
+  "snapshot_id": "nba_2025_26_hist_gsw_phx_sourcepack_2026_06_25",
+  "snapshot_type": "historical_source_backed",
+  "season": "2025-2026",
+  "source_name": "m8-d-v2 source pack (NBA.com + Spotrac + Basketball Reference)",
+  "source_url": "https://www.nba.com/news/nba-salary-cap-set-2025-26-season",
+  "source_pack_version": "m8-d-v2",
+  "as_of_date": "2026-06-25",
+  "generated_at": "2026-06-25",
+  "sample_data": false,
+  "manual_review_required": true,
+  "teams": ["nba-GSW", "nba-PHX"],
+  "description": "Provisional source-backed 2025-26 historical NBA snapshot for Golden State Warriors and Phoenix Suns. Not fully verified legal/cap truth.",
+  "limitations": [
+    "provisional source-backed snapshot",
+    "not full roster",
+    "not full payroll",
+    "third-party contract data",
+    "manual review required"
+  ]
+}
