@@ -316,6 +316,19 @@ def proposal_preview(req: ProposalPreviewRequest) -> Dict[str, Any]:
         # Defensive: any value error from the backend surfaces as 400.
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    # M8-E2: attach an additive agent_trace to the payload. The trace
+    # is a user-facing projection of the deterministic pipeline; it
+    # does NOT change the recommendation, the validation verdict, or
+    # the human-approval guardrail. It only adds a new top-level key.
+    from backend.app.services.agent_trace_builder import (
+        build_proposal_agent_trace,
+    )
+
+    payload["agent_trace"] = build_proposal_agent_trace(
+        goal_team_id=req.team_id,
+        goal_objective=req.objective,
+        payload=payload,
+    )
     return payload
 
 
@@ -346,4 +359,15 @@ def trade_preview_demo() -> Dict[str, Any]:
 
     from run_trade_preview_demo import build_trade_preview_payload  # type: ignore[import-not-found]
 
-    return build_trade_preview_payload(_DATA_DIR)
+    payload = build_trade_preview_payload(_DATA_DIR)
+
+    # M8-E2: attach an additive agent_trace to the trade payload. The
+    # trace is a user-facing projection; it does NOT change the trade
+    # assets, the salary-matching result, or the human-approval
+    # guardrail. It only adds a new top-level key.
+    from backend.app.services.agent_trace_builder import (
+        build_trade_agent_trace,
+    )
+
+    payload["agent_trace"] = build_trade_agent_trace(payload)
+    return payload

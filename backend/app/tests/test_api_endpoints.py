@@ -416,8 +416,13 @@ def test_trade_preview_demo_matches_cli_output(client: TestClient) -> None:
     api_resp = client.get("/api/offseason/trade-preview-demo")
     api_payload = api_resp.json()
 
+    # M8-E2: the API adds an additive ``agent_trace`` key that the CLI
+    # does not produce (the CLI is intentionally left unchanged). Strip
+    # it before comparing so the core business payload stays in sync.
+    api_payload_core = {k: v for k, v in api_payload.items() if k != "agent_trace"}
+
     # The API and CLI must produce identical payloads (same keys, same values).
-    assert api_payload == cli_payload
+    assert api_payload_core == cli_payload
 
 
 def test_trade_preview_demo_has_team_a_and_team_b_post_trade(client: TestClient) -> None:
@@ -538,8 +543,13 @@ def test_proposal_preview_schema_matches_cli(client: TestClient) -> None:
     )
     api_payload = api_resp.json()
 
+    # M8-E2: the API adds an additive ``agent_trace`` key that the CLI
+    # does not produce. Strip it before comparing top-level keys so the
+    # core business schema stays in sync.
+    api_keys = set(api_payload.keys()) - {"agent_trace"}
+
     # Top-level keys must match so M7-B can swap static -> API seamlessly.
-    assert set(api_payload.keys()) == set(cli_payload.keys())
+    assert api_keys == set(cli_payload.keys())
     # Nested proposal + evaluation keys must match too.
     assert set(api_payload["proposal"].keys()) == set(cli_payload["proposal"].keys())
     assert set(api_payload["evaluation"].keys()) == set(cli_payload["evaluation"].keys())

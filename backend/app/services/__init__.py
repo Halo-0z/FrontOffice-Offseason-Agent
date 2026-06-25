@@ -13,6 +13,7 @@ Submodules (M1+):
 - ``snapshot_validator``        : (M8-B) snapshot bundle structural validation.
 - ``snapshot_loader``           : (M8-B) snapshot bundle loading + provenance.
 - ``data_source_resolver``      : (M8-C1/C2) DATA_MODE demo|snapshot resolver.
+- ``agent_trace_builder``       : (M8-E2) agent trace schema + builder.
 
 M0 scope: package docstring only. No logic.
 """
@@ -29,4 +30,5 @@ __all__ = [
     "snapshot_validator",
     "snapshot_loader",
     "data_source_resolver",
+    "agent_trace_builder",
 ]
