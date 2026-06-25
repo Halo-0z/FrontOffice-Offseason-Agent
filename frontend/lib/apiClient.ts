@@ -190,15 +190,34 @@ export async function fetchTradePreviewDemo(): Promise<DemoTradePayload> {
 /**
  * GET /api/health
  *
- * Liveness probe. Optional — the page does not require a health check
- * before calling the data endpoints; it just tries the data endpoint
- * and falls back on failure. Exposed for debugging / future use.
+ * Liveness probe + data source metadata. Optional — the page does not
+ * require a health check before calling the data endpoints; it just
+ * tries the data endpoint and falls back on failure. Exposed for
+ * debugging / future use and for the data source status card (M8-D4).
+ *
+ * The legacy fields (status, sample_data, service) are always present.
+ * M8-C1/C2 added additive data source metadata that may be null when
+ * running in demo mode. We read them as optional so the type reflects
+ * the real backend contract.
  */
-export async function fetchHealth(): Promise<{
+export interface HealthResponse {
+  // Legacy fields (always present)
   status: string;
   sample_data: boolean;
   service: string;
-}> {
+  // Additive data source metadata (M8-C1/C2). Null in demo mode.
+  data_mode?: string | null;
+  active_data_source?: string | null;
+  snapshot_id?: string | null;
+  snapshot_valid?: boolean | null;
+  snapshot_is_fixture?: boolean | null;
+  snapshot_type?: string | null;
+  snapshot_warnings?: string[] | null;
+  fallback_reason?: string | null;
+  strict_snapshot?: boolean | null;
+}
+
+export async function fetchHealth(): Promise<HealthResponse> {
   return fetchJson("/api/health");
 }
 

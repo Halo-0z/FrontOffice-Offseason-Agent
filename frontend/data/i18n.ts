@@ -842,6 +842,109 @@ export const copy = {
     indicatorValidationStatus: { zh: "验证状态", en: "Validation status" } as Bilingual,
     indicatorSalaryMatch: { zh: "薪资配平", en: "Salary match" } as Bilingual,
   } as const,
+
+  // ---- M8-D4: User-friendly data source display ----
+  // Plain-language copy for the data source status card. Engineering
+  // fields (snapshot_id, snapshot_type, manual_review_required, etc.)
+  // are hidden by default and only surfaced in a collapsed "technical
+  // details" section. The main card speaks to a non-technical user.
+  userData: {
+    // Card title + labels
+    cardTitle: { zh: "当前数据", en: "Current Data" } as Bilingual,
+    coverageLabel: { zh: "覆盖球队", en: "Coverage" } as Bilingual,
+    sourceLabel: { zh: "数据来源", en: "Source" } as Bilingual,
+    statusLabel: { zh: "状态", en: "Status" } as Bilingual,
+    noteLabel: { zh: "注意", en: "Note" } as Bilingual,
+    useCaseLabel: { zh: "适合用途", en: "Best for" } as Bilingual,
+
+    // Demo mode (backend online, DATA_MODE unset/demo)
+    demoTitle: { zh: "演示数据", en: "Demo Data" } as Bilingual,
+    demoDescription: {
+      zh: "用于功能演示，不代表真实 NBA 阵容或薪资",
+      en: "For feature demos — does not represent real NBA rosters or salaries",
+    } as Bilingual,
+    demoStatus: { zh: "可用", en: "Available" } as Bilingual,
+    demoCoverage: { zh: "示例球队", en: "Sample teams" } as Bilingual,
+    demoSource: { zh: "内置示例", en: "Built-in samples" } as Bilingual,
+    demoUseCase: { zh: "功能演示", en: "Feature demos" } as Bilingual,
+    demoNote: {
+      zh: "所有球员、球队、薪资均为模拟数据。",
+      en: "All players, teams, and salaries are simulated.",
+    } as Bilingual,
+
+    // Snapshot mode (backend online, DATA_MODE=snapshot, valid snapshot)
+    snapshotTitle: { zh: "2025-26 赛季历史数据", en: "2025-26 Season Historical Data" } as Bilingual,
+    snapshotDescription: {
+      zh: "从公开来源整理的固定历史数据样本",
+      en: "A fixed historical sample organized from public sources",
+    } as Bilingual,
+    snapshotStatus: { zh: "可用于演示和验证", en: "Ready for demo & validation" } as Bilingual,
+    snapshotCoverageGswPhx: { zh: "勇士、太阳", en: "Warriors, Suns" } as Bilingual,
+    snapshotSourcePublic: {
+      zh: "NBA.com / Spotrac 等公开来源",
+      en: "NBA.com / Spotrac and other public sources",
+    } as Bilingual,
+    snapshotUseCase: {
+      zh: "演示、验证真实数据管线、查看样例决策",
+      en: "Demos, validating the real-data pipeline, sample decisions",
+    } as Bilingual,
+    snapshotNote: {
+      zh: "部分薪资和合同细节仍需人工复核，结果不会自动执行交易或签约。",
+      en: "Some salary and contract details still need manual review; results never auto-execute trades or signings.",
+    } as Bilingual,
+    snapshotNotLive: {
+      zh: "这不是实时联网数据，只是一份固定的 2025-26 历史样本，方便稳定演示。",
+      en: "This is not live data — just a fixed 2025-26 historical sample for stable demos.",
+    } as Bilingual,
+    snapshotSampleExplainer: {
+      zh: "“历史数据样本”是从公开来源整理下来的一份固定数据版本，用来保证演示和测试结果可复现。",
+      en: "A \"historical sample\" is a fixed dataset organized from public sources, used to keep demos and tests reproducible.",
+    } as Bilingual,
+
+    // Offline mode (backend unreachable)
+    offlineTitle: { zh: "本地备用演示数据", en: "Local Backup Demo Data" } as Bilingual,
+    offlineDescription: {
+      zh: "后端暂时不可用，页面正在使用前端内置示例",
+      en: "Backend temporarily unavailable — page is using built-in samples",
+    } as Bilingual,
+    offlineStatus: { zh: "离线备用", en: "Offline fallback" } as Bilingual,
+
+    // Collapsible technical details (developer-facing, hidden by default)
+    techDetailsToggle: { zh: "查看技术详情", en: "View technical details" } as Bilingual,
+    techDetailsHint: {
+      zh: "以下为开发者调试用字段，普通用户无需关注。",
+      en: "Developer debug fields below — not needed for normal use.",
+    } as Bilingual,
+    techFieldDataMode: { zh: "data_mode", en: "data_mode" } as Bilingual,
+    techFieldSnapshotId: { zh: "snapshot_id", en: "snapshot_id" } as Bilingual,
+    techFieldSnapshotType: { zh: "snapshot_type", en: "snapshot_type" } as Bilingual,
+    techFieldSampleData: { zh: "sample_data", en: "sample_data" } as Bilingual,
+    techFieldWarningsCount: { zh: "warnings count", en: "warnings count" } as Bilingual,
+    techFieldActiveDataSource: { zh: "active_data_source", en: "active_data_source" } as Bilingual,
+    techFieldSnapshotValid: { zh: "snapshot_valid", en: "snapshot_valid" } as Bilingual,
+    techFieldStrictSnapshot: { zh: "strict_snapshot", en: "strict_snapshot" } as Bilingual,
+    techFieldFallbackReason: { zh: "fallback_reason", en: "fallback_reason" } as Bilingual,
+    techFieldEmpty: { zh: "（空）", en: "(empty)" } as Bilingual,
+
+    // User-friendly inspector indicators (replaces engineering jargon)
+    indicatorDataType: { zh: "数据类型", en: "Data type" } as Bilingual,
+    indicatorDataTypeDemo: { zh: "演示数据", en: "Demo data" } as Bilingual,
+    indicatorDataTypeSnapshot: { zh: "历史真实数据样本", en: "Historical real-data sample" } as Bilingual,
+    indicatorDataTypeOffline: { zh: "本地备用", en: "Local backup" } as Bilingual,
+    indicatorCompleteness: { zh: "是否完整", en: "Completeness" } as Bilingual,
+    indicatorCompletenessDemo: { zh: "示例样本", en: "Sample" } as Bilingual,
+    indicatorCompletenessSnapshot: { zh: "小范围样本", en: "Small sample" } as Bilingual,
+    indicatorCompletenessOffline: { zh: "示例样本", en: "Sample" } as Bilingual,
+    indicatorNeedsReview: { zh: "是否需复核", en: "Needs review" } as Bilingual,
+    indicatorNeedsReviewYes: { zh: "需要", en: "Yes" } as Bilingual,
+    indicatorNeedsReviewNo: { zh: "不适用", en: "N/A" } as Bilingual,
+    indicatorAutoExecute: { zh: "是否会自动执行", en: "Auto-executes" } as Bilingual,
+    indicatorAutoExecuteNo: { zh: "不会", en: "No" } as Bilingual,
+    indicatorCurrentUse: { zh: "当前用途", en: "Current use" } as Bilingual,
+    indicatorCurrentUseDemo: { zh: "功能演示", en: "Feature demo" } as Bilingual,
+    indicatorCurrentUseSnapshot: { zh: "演示 / 验证", en: "Demo / validation" } as Bilingual,
+    indicatorCurrentUseOffline: { zh: "离线演示", en: "Offline demo" } as Bilingual,
+  } as const,
 } as const;
 
 // ---- Helper: format salary ----

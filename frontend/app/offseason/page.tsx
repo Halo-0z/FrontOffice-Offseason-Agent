@@ -25,6 +25,7 @@ import {
   fetchProposalPreview,
   fetchTradePreviewDemo,
   fetchHealth,
+  type HealthResponse,
   type ProposalPreviewParams,
 } from "../../lib/apiClient";
 import type { DemoPayload } from "../../data/demoProposalPayload";
@@ -38,10 +39,27 @@ type Mode = "signing" | "hold" | "trade";
 type RunState = "idle" | "running" | "complete";
 type DataSource = "idle" | "api" | "fallback";
 
+/**
+ * Health state. `online=false` means the backend was unreachable and
+ * the page is using local fallback samples. When `online=true`, the
+ * additive fields mirror the backend `/api/health` response
+ * (M8-C1/C2). The `kind` discriminator drives the user-friendly data
+ * source card: "demo" | "snapshot" | "offline".
+ */
 interface HealthState {
   online: boolean;
   status: string;
   sample: boolean;
+  kind: "demo" | "snapshot" | "offline";
+  dataMode?: string | null;
+  activeDataSource?: string | null;
+  snapshotId?: string | null;
+  snapshotValid?: boolean | null;
+  snapshotIsFixture?: boolean | null;
+  snapshotType?: string | null;
+  snapshotWarnings?: string[] | null;
+  fallbackReason?: string | null;
+  strictSnapshot?: boolean | null;
 }
 
 interface RunResult {
@@ -211,22 +229,47 @@ export default function OffseasonPage() {
     online: false,
     status: "offline",
     sample: true,
+    kind: "offline",
   });
   const [activeNav, setActiveNav] = useState<string>("console");
 
   // -- Health check on mount --
+  // Derive `kind` from the additive metadata: snapshot mode when
+  // data_mode === "snapshot" and the backend is online; demo mode
+  // otherwise. Offline when the fetch fails.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const health = await fetchHealth();
+        const health: HealthResponse = await fetchHealth();
         if (!cancelled) {
-          setHealthState({ online: true, status: health.status, sample: health.sample_data });
+          const kind: HealthState["kind"] =
+            health.data_mode === "snapshot" ? "snapshot" : "demo";
+          setHealthState({
+            online: true,
+            status: health.status,
+            sample: health.sample_data,
+            kind,
+            dataMode: health.data_mode ?? null,
+            activeDataSource: health.active_data_source ?? null,
+            snapshotId: health.snapshot_id ?? null,
+            snapshotValid: health.snapshot_valid ?? null,
+            snapshotIsFixture: health.snapshot_is_fixture ?? null,
+            snapshotType: health.snapshot_type ?? null,
+            snapshotWarnings: health.snapshot_warnings ?? null,
+            fallbackReason: health.fallback_reason ?? null,
+            strictSnapshot: health.strict_snapshot ?? null,
+          });
           setDataSource("idle");
         }
       } catch {
         if (!cancelled) {
-          setHealthState({ online: false, status: "offline", sample: true });
+          setHealthState({
+            online: false,
+            status: "offline",
+            sample: true,
+            kind: "offline",
+          });
         }
       }
     })();
@@ -372,6 +415,32 @@ export default function OffseasonPage() {
     : "\u2014";
 
   // -- Indicator rows --
+  // M8-D4: replaced engineering jargon (Real NBA Data: false, Data Type:
+  // snapshot, Manual Review: true) with plain-language rows driven by
+  // the current data source kind. The data type / completeness /
+  // needs-review / auto-execute / current-use rows are all user-facing.
+  const ud = copy.userData;
+  const dataTypeValue =
+    healthState.kind === "snapshot"
+      ? ud.indicatorDataTypeSnapshot
+      : healthState.kind === "demo"
+        ? ud.indicatorDataTypeDemo
+        : ud.indicatorDataTypeOffline;
+  const completenessValue =
+    healthState.kind === "snapshot"
+      ? ud.indicatorCompletenessSnapshot
+      : healthState.kind === "demo"
+        ? ud.indicatorCompletenessDemo
+        : ud.indicatorCompletenessOffline;
+  const needsReviewValue =
+    healthState.kind === "snapshot" ? ud.indicatorNeedsReviewYes : ud.indicatorNeedsReviewNo;
+  const currentUseValue =
+    healthState.kind === "snapshot"
+      ? ud.indicatorCurrentUseSnapshot
+      : healthState.kind === "demo"
+        ? ud.indicatorCurrentUseDemo
+        : ud.indicatorCurrentUseOffline;
+
   const indicatorRows =
     runState === "complete" && result
       ? [
@@ -391,13 +460,28 @@ export default function OffseasonPage() {
             ok: !result.proposal?.proposal.requires_human_approval,
           },
           {
-            label: { zh: "数据类型", en: "Data" },
-            value: { zh: "样例数据", en: "Demo" },
+            label: ud.indicatorDataType,
+            value: dataTypeValue,
+            ok: healthState.kind === "snapshot",
+          },
+          {
+            label: ud.indicatorCompleteness,
+            value: completenessValue,
             ok: false,
           },
           {
-            label: { zh: "NBA 真实", en: "Real NBA" },
-            value: { zh: "否", en: "No" },
+            label: ud.indicatorNeedsReview,
+            value: needsReviewValue,
+            ok: healthState.kind !== "snapshot",
+          },
+          {
+            label: ud.indicatorAutoExecute,
+            value: ud.indicatorAutoExecuteNo,
+            ok: true,
+          },
+          {
+            label: ud.indicatorCurrentUse,
+            value: currentUseValue,
             ok: false,
           },
         ]
@@ -716,17 +800,177 @@ export default function OffseasonPage() {
 
             {/* COLUMN 3: Pipeline + Indicators + Key metrics */}
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", minWidth: 0 }}>
-              {/* Data source health */}
-              <div className="console-health-card">
-                <span
-                  className={`console-health-card__dot ${healthState.online ? "console-health-card__dot--online" : "console-health-card__dot--offline"}`}
-                />
-                <span>
-                  {healthState.online ? db.backendOnline[lang] : db.backendOffline[lang]}
-                </span>
-              </div>
-              <div style={{ fontSize: 10, color: "var(--muted-foreground)", fontFamily: "var(--font-mono)", paddingLeft: 4 }}>
-                {lang === "zh" ? "API" : "API"}: {API_BASE_URL}
+              {/* M8-D4: User-friendly data source card.
+                  Engineering fields (snapshot_id, snapshot_type,
+                  manual_review_required, etc.) are hidden by default
+                  and only surface in a collapsed "technical details"
+                  section below the plain-language summary. */}
+              <div className={`console-datasource-card console-datasource-card--${healthState.kind}`}>
+                <div className="console-datasource-card__header">
+                  <span
+                    className={`console-datasource-card__dot console-datasource-card__dot--${healthState.kind}`}
+                  />
+                  <span className="console-datasource-card__title">{ud.cardTitle[lang]}</span>
+                </div>
+                <div className="console-datasource-card__body">
+                  {/* Headline: the data source name in plain language */}
+                  <p className="console-datasource-card__headline">
+                    {healthState.kind === "snapshot"
+                      ? ud.snapshotTitle[lang]
+                      : healthState.kind === "demo"
+                        ? ud.demoTitle[lang]
+                        : ud.offlineTitle[lang]}
+                  </p>
+                  {/* Description line */}
+                  <p className="console-datasource-card__desc">
+                    {healthState.kind === "snapshot"
+                      ? ud.snapshotDescription[lang]
+                      : healthState.kind === "demo"
+                        ? ud.demoDescription[lang]
+                        : ud.offlineDescription[lang]}
+                  </p>
+
+                  {/* Snapshot-specific rows: coverage + source + use case */}
+                  {healthState.kind === "snapshot" && (
+                    <>
+                      <div className="console-datasource-card__row">
+                        <span className="console-datasource-card__label">{ud.coverageLabel[lang]}</span>
+                        <span className="console-datasource-card__value">{ud.snapshotCoverageGswPhx[lang]}</span>
+                      </div>
+                      <div className="console-datasource-card__row">
+                        <span className="console-datasource-card__label">{ud.sourceLabel[lang]}</span>
+                        <span className="console-datasource-card__value">{ud.snapshotSourcePublic[lang]}</span>
+                      </div>
+                      <div className="console-datasource-card__row">
+                        <span className="console-datasource-card__label">{ud.useCaseLabel[lang]}</span>
+                        <span className="console-datasource-card__value">{ud.snapshotUseCase[lang]}</span>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Demo-specific rows: coverage + source + use case */}
+                  {healthState.kind === "demo" && (
+                    <>
+                      <div className="console-datasource-card__row">
+                        <span className="console-datasource-card__label">{ud.coverageLabel[lang]}</span>
+                        <span className="console-datasource-card__value">{ud.demoCoverage[lang]}</span>
+                      </div>
+                      <div className="console-datasource-card__row">
+                        <span className="console-datasource-card__label">{ud.sourceLabel[lang]}</span>
+                        <span className="console-datasource-card__value">{ud.demoSource[lang]}</span>
+                      </div>
+                      <div className="console-datasource-card__row">
+                        <span className="console-datasource-card__label">{ud.useCaseLabel[lang]}</span>
+                        <span className="console-datasource-card__value">{ud.demoUseCase[lang]}</span>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Status row (always shown) */}
+                  <div className="console-datasource-card__row">
+                    <span className="console-datasource-card__label">{ud.statusLabel[lang]}</span>
+                    <span className="console-datasource-card__value">
+                      {healthState.kind === "snapshot"
+                        ? ud.snapshotStatus[lang]
+                        : healthState.kind === "demo"
+                          ? ud.demoStatus[lang]
+                          : ud.offlineStatus[lang]}
+                    </span>
+                  </div>
+
+                  {/* Note row (always shown, content varies by kind) */}
+                  <p className="console-datasource-card__note">
+                    {healthState.kind === "snapshot"
+                      ? ud.snapshotNote[lang]
+                      : healthState.kind === "demo"
+                        ? ud.demoNote[lang]
+                        : ud.offlineDescription[lang]}
+                  </p>
+
+                  {/* Snapshot-only: not-live disclaimer + sample explainer */}
+                  {healthState.kind === "snapshot" && (
+                    <p className="console-datasource-card__note console-datasource-card__note--soft">
+                      {ud.snapshotNotLive[lang]}
+                    </p>
+                  )}
+                  {healthState.kind === "snapshot" && (
+                    <p className="console-datasource-card__note console-datasource-card__note--soft">
+                      {ud.snapshotSampleExplainer[lang]}
+                    </p>
+                  )}
+                </div>
+
+                {/* Collapsible technical details (developer-facing, hidden by default).
+                    Engineering fields go here, NOT in the main card body. */}
+                <details className="console-datasource-card__tech">
+                  <summary>
+                    <ChevronDownIcon />
+                    {ud.techDetailsToggle[lang]}
+                  </summary>
+                  <div className="console-datasource-card__tech-body">
+                    <p className="console-datasource-card__tech-hint">{ud.techDetailsHint[lang]}</p>
+                    <div className="console-datasource-card__tech-row">
+                      <span className="console-datasource-card__tech-label">{ud.techFieldDataMode[lang]}</span>
+                      <span className="console-datasource-card__tech-value">
+                        {healthState.dataMode ?? ud.techFieldEmpty[lang]}
+                      </span>
+                    </div>
+                    <div className="console-datasource-card__tech-row">
+                      <span className="console-datasource-card__tech-label">{ud.techFieldSnapshotId[lang]}</span>
+                      <span className="console-datasource-card__tech-value">
+                        {healthState.snapshotId ?? ud.techFieldEmpty[lang]}
+                      </span>
+                    </div>
+                    <div className="console-datasource-card__tech-row">
+                      <span className="console-datasource-card__tech-label">{ud.techFieldSnapshotType[lang]}</span>
+                      <span className="console-datasource-card__tech-value">
+                        {healthState.snapshotType ?? ud.techFieldEmpty[lang]}
+                      </span>
+                    </div>
+                    <div className="console-datasource-card__tech-row">
+                      <span className="console-datasource-card__tech-label">{ud.techFieldSampleData[lang]}</span>
+                      <span className="console-datasource-card__tech-value">
+                        {String(healthState.sample)}
+                      </span>
+                    </div>
+                    <div className="console-datasource-card__tech-row">
+                      <span className="console-datasource-card__tech-label">{ud.techFieldSnapshotValid[lang]}</span>
+                      <span className="console-datasource-card__tech-value">
+                        {healthState.snapshotValid === null
+                          ? ud.techFieldEmpty[lang]
+                          : String(healthState.snapshotValid)}
+                      </span>
+                    </div>
+                    <div className="console-datasource-card__tech-row">
+                      <span className="console-datasource-card__tech-label">{ud.techFieldStrictSnapshot[lang]}</span>
+                      <span className="console-datasource-card__tech-value">
+                        {String(healthState.strictSnapshot ?? false)}
+                      </span>
+                    </div>
+                    <div className="console-datasource-card__tech-row">
+                      <span className="console-datasource-card__tech-label">{ud.techFieldWarningsCount[lang]}</span>
+                      <span className="console-datasource-card__tech-value">
+                        {healthState.snapshotWarnings?.length ?? 0}
+                      </span>
+                    </div>
+                    <div className="console-datasource-card__tech-row">
+                      <span className="console-datasource-card__tech-label">{ud.techFieldActiveDataSource[lang]}</span>
+                      <span className="console-datasource-card__tech-value">
+                        {healthState.activeDataSource ?? ud.techFieldEmpty[lang]}
+                      </span>
+                    </div>
+                    <div className="console-datasource-card__tech-row">
+                      <span className="console-datasource-card__tech-label">{ud.techFieldFallbackReason[lang]}</span>
+                      <span className="console-datasource-card__tech-value">
+                        {healthState.fallbackReason ?? ud.techFieldEmpty[lang]}
+                      </span>
+                    </div>
+                    <div className="console-datasource-card__tech-row">
+                      <span className="console-datasource-card__tech-label">API</span>
+                      <span className="console-datasource-card__tech-value">{API_BASE_URL}</span>
+                    </div>
+                  </div>
+                </details>
               </div>
 
               {/* Pipeline */}
@@ -834,11 +1078,13 @@ export default function OffseasonPage() {
                 </div>
               )}
 
-              {/* Demo data warning */}
+              {/* Data disclaimer (M8-D4: content adapts to data source kind) */}
               <div style={{ fontSize: 10, color: "var(--muted-foreground)", lineHeight: 1.4, padding: "4px 0" }}>
-                {lang === "zh"
-                  ? "这些球队、球员、薪资和交易结果是 sample/demo 数据，不代表真实 NBA 数据。"
-                  : "All data is sample/demo, not real NBA data."}
+                {healthState.kind === "snapshot"
+                  ? ud.snapshotNotLive[lang]
+                  : lang === "zh"
+                    ? "这些球队、球员、薪资和交易结果是 sample/demo 数据，不代表真实 NBA 数据。"
+                    : "All data is sample/demo, not real NBA data."}
               </div>
             </div>
           </div>
