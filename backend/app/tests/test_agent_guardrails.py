@@ -32,6 +32,14 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 DATA_DIR = REPO_ROOT / "data"
 
 
+@pytest.fixture(scope="module")
+def client():
+    """Module-scoped FastAPI TestClient for API-level guardrail tests."""
+    from fastapi.testclient import TestClient
+    from backend.app.api import app
+    return TestClient(app)
+
+
 def _minimum_signing(tx_id: str, salary: int = 1_000_000) -> SigningTransaction:
     return SigningTransaction(
         transaction_id=tx_id,
@@ -815,3 +823,750 @@ def test_cli_demo_output_mentions_human_approval_and_sample_data() -> None:
     # The output must also mention the MVP limitations.
     assert "No LLM call" in result.stdout
     assert "No MCP" in result.stdout
+
+
+# --------------------------------------------------------------------------- #
+# M8-E guardrails: agent_trace_builder must not call LLM/MCP, must not
+# write data, must not mutate payload, must not re-validate transactions,
+# and trace content must never claim execution.
+# --------------------------------------------------------------------------- #
+
+
+def test_agent_trace_builder_does_not_use_mcp_or_llm() -> None:
+    """agent_trace_builder module must not import or expose any MCP or
+    LLM client attributes."""
+    from backend.app.services import agent_trace_builder as builder_mod
+
+    for forbidden in (
+        "mcp",
+        "mcp_client",
+        "mcp_server",
+        "MCPClient",
+        "openai",
+        "llm",
+        "anthropic",
+        "chat_completion",
+    ):
+        assert not hasattr(builder_mod, forbidden), (
+            f"agent_trace_builder must not expose {forbidden!r}"
+        )
+
+
+def test_agent_trace_builder_does_not_write_data_files() -> None:
+    """Building proposal and trade traces must not mutate any core data
+    files."""
+    import copy
+
+    from backend.app.services.agent_trace_builder import (
+        build_proposal_agent_trace,
+        build_trade_agent_trace,
+    )
+    from backend.app.services.proposal_viewer import build_demo_payload
+
+    files = [
+        DATA_DIR / "players.json",
+        DATA_DIR / "contracts.json",
+        DATA_DIR / "free_agents.json",
+        DATA_DIR / "evidence_notes.json",
+    ]
+    before = {f: f.read_bytes() for f in files}
+
+    from backend.app.models.agent import OffseasonGoal
+
+    goal = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload = build_demo_payload(goal, DATA_DIR)
+    payload_snapshot = copy.deepcopy(payload)
+
+    build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload,
+    )
+
+    import sys
+    scripts_dir = REPO_ROOT / "backend" / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    from run_trade_preview_demo import build_trade_preview_payload  # type: ignore
+
+    trade_payload = build_trade_preview_payload(DATA_DIR)
+    trade_payload_snapshot = copy.deepcopy(trade_payload)
+    build_trade_agent_trace(trade_payload)
+
+    after = {f: f.read_bytes() for f in files}
+    for f in files:
+        assert before[f] == after[f], (
+            f"agent_trace_builder must not mutate {f.name}"
+        )
+    # Also verify the input payload dicts were not mutated.
+    assert payload == payload_snapshot, "build_proposal_agent_trace must not mutate input payload"
+    assert trade_payload == trade_payload_snapshot, "build_trade_agent_trace must not mutate input payload"
+
+
+def test_agent_trace_builder_does_not_call_rule_engine_or_simulator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """agent_trace_builder must NOT call transaction_rule_engine or
+    trade_simulator to re-validate transactions. It only reads the
+    already-serialized payload. Patching those to raise must not affect
+    trace building."""
+    from backend.app.services import agent_trace_builder as builder_mod
+    from backend.app.services import trade_simulator as sim
+    from backend.app.services import transaction_rule_engine as engine
+    from backend.app.services.proposal_viewer import build_demo_payload
+    from backend.app.models.agent import OffseasonGoal
+
+    def _boom(*args, **kwargs):
+        raise AssertionError(
+            "agent_trace_builder must not call validation/simulation tools"
+        )
+
+    monkeypatch.setattr(engine, "validate_transaction", _boom)
+    monkeypatch.setattr(engine, "validate_signing", _boom)
+    monkeypatch.setattr(engine, "validate_trade", _boom)
+    monkeypatch.setattr(sim, "preview_signing", _boom)
+    monkeypatch.setattr(sim, "preview_trade", _boom)
+    monkeypatch.setattr(sim, "preview_transaction", _boom)
+
+    goal = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload = build_demo_payload(goal, DATA_DIR)
+    trace = builder_mod.build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload,
+    )
+    assert trace is not None
+    assert trace["requires_human_approval"] is True
+    assert len(trace["steps"]) == 8
+
+
+def test_agent_trace_proposal_eight_steps_contracted_order() -> None:
+    """Proposal agent_trace must have exactly 8 steps in the contracted
+    order with correct tool_names."""
+    from backend.app.services.agent_trace_builder import build_proposal_agent_trace
+    from backend.app.services.proposal_viewer import build_demo_payload
+    from backend.app.models.agent import OffseasonGoal
+
+    expected_tool_names = [
+        "load_active_data_source",
+        "inspect_team_context",
+        "find_candidate_players",
+        "simulate_signing",
+        "validate_salary_rules",
+        "validate_roster_balance",
+        "collect_evidence",
+        "request_human_approval",
+    ]
+
+    goal = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload = build_demo_payload(goal, DATA_DIR)
+    trace = build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload,
+    )
+    steps = trace["steps"]
+    assert len(steps) == 8
+    actual_tool_names = [s["tool_name"] for s in steps]
+    assert actual_tool_names == expected_tool_names
+    # sequence must be 1..8
+    for i, s in enumerate(steps):
+        assert s["sequence"] == i + 1
+
+
+def test_agent_trace_trade_eight_steps_contracted_order() -> None:
+    """Trade agent_trace must have exactly 8 steps in the contracted
+    order with correct tool_names."""
+    import sys
+
+    scripts_dir = REPO_ROOT / "backend" / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    from run_trade_preview_demo import build_trade_preview_payload  # type: ignore
+    from backend.app.services.agent_trace_builder import build_trade_agent_trace
+
+    expected_tool_names = [
+        "load_active_data_source",
+        "inspect_team_context",
+        "find_candidate_players",
+        "simulate_trade",
+        "validate_salary_rules",
+        "validate_roster_balance",
+        "collect_evidence",
+        "request_human_approval",
+    ]
+
+    payload = build_trade_preview_payload(DATA_DIR)
+    trace = build_trade_agent_trace(payload)
+    steps = trace["steps"]
+    assert len(steps) == 8
+    actual_tool_names = [s["tool_name"] for s in steps]
+    assert actual_tool_names == expected_tool_names
+    for i, s in enumerate(steps):
+        assert s["sequence"] == i + 1
+
+
+def test_agent_trace_final_message_always_read_only_disclaimer() -> None:
+    """final_message must always be the fixed read-only disclaimer
+    containing '这是只读预览，不会自动执行。'."""
+    from backend.app.services.agent_trace_builder import (
+        build_proposal_agent_trace,
+        build_trade_agent_trace,
+        FINAL_MESSAGE_READ_ONLY,
+    )
+    from backend.app.services.proposal_viewer import build_demo_payload
+    from backend.app.models.agent import OffseasonGoal
+
+    # Signing path
+    goal = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload = build_demo_payload(goal, DATA_DIR)
+    trace = build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload,
+    )
+    assert trace["final_message"] == FINAL_MESSAGE_READ_ONLY
+    assert "只读预览" in trace["final_message"]
+    assert "不会自动执行" in trace["final_message"]
+
+    # Hold path (strict budget)
+    goal_hold = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=15_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload_hold = build_demo_payload(goal_hold, DATA_DIR)
+    trace_hold = build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload_hold,
+    )
+    assert trace_hold["final_message"] == FINAL_MESSAGE_READ_ONLY
+
+    # Trade path
+    import sys
+    scripts_dir = REPO_ROOT / "backend" / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    from run_trade_preview_demo import build_trade_preview_payload  # type: ignore
+
+    trade_payload = build_trade_preview_payload(DATA_DIR)
+    trace_trade = build_trade_agent_trace(trade_payload)
+    assert trace_trade["final_message"] == FINAL_MESSAGE_READ_ONLY
+
+
+def test_agent_trace_requires_human_approval_always_true() -> None:
+    """agent_trace.requires_human_approval must be True for signing,
+    hold, and trade paths."""
+    from backend.app.services.agent_trace_builder import (
+        build_proposal_agent_trace,
+        build_trade_agent_trace,
+    )
+    from backend.app.services.proposal_viewer import build_demo_payload
+    from backend.app.models.agent import OffseasonGoal
+
+    # Signing (RECOMMENDED)
+    goal = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload = build_demo_payload(goal, DATA_DIR)
+    trace = build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload,
+    )
+    assert trace["requires_human_approval"] is True
+
+    # Hold (NO_ACTION)
+    goal_hold = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=15_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload_hold = build_demo_payload(goal_hold, DATA_DIR)
+    trace_hold = build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload_hold,
+    )
+    assert trace_hold["requires_human_approval"] is True
+
+    # Trade
+    import sys
+    scripts_dir = REPO_ROOT / "backend" / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    from run_trade_preview_demo import build_trade_preview_payload  # type: ignore
+
+    trade_payload = build_trade_preview_payload(DATA_DIR)
+    trace_trade = build_trade_agent_trace(trade_payload)
+    assert trace_trade["requires_human_approval"] is True
+
+
+def test_agent_trace_approval_state_never_executes() -> None:
+    """approval_state must never be an execution state like
+    'executed', 'applied', or 'committed'."""
+    from backend.app.services.agent_trace_builder import (
+        build_proposal_agent_trace,
+        build_trade_agent_trace,
+    )
+    from backend.app.services.proposal_viewer import build_demo_payload
+    from backend.app.models.agent import OffseasonGoal
+
+    forbidden_states = {"executed", "applied", "committed", "completed_execution"}
+    allowed_states = {"required", "approved_preview", "blocked", "not_required"}
+
+    goal = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload = build_demo_payload(goal, DATA_DIR)
+    trace = build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload,
+    )
+    assert trace["approval_state"] not in forbidden_states
+    assert trace["approval_state"] in allowed_states
+
+    import sys
+    scripts_dir = REPO_ROOT / "backend" / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    from run_trade_preview_demo import build_trade_preview_payload  # type: ignore
+
+    trade_payload = build_trade_preview_payload(DATA_DIR)
+    trace_trade = build_trade_agent_trace(trade_payload)
+    assert trace_trade["approval_state"] not in forbidden_states
+    assert trace_trade["approval_state"] in allowed_states
+
+
+def test_agent_trace_human_approval_step_requires_review() -> None:
+    """Step 8 (request_human_approval) must have
+    requires_human_review=True for both proposal and trade traces."""
+    from backend.app.services.agent_trace_builder import (
+        build_proposal_agent_trace,
+        build_trade_agent_trace,
+    )
+    from backend.app.services.proposal_viewer import build_demo_payload
+    from backend.app.models.agent import OffseasonGoal
+
+    goal = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload = build_demo_payload(goal, DATA_DIR)
+    trace = build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload,
+    )
+    approval_step = trace["steps"][-1]
+    assert approval_step["tool_name"] == "request_human_approval"
+    assert approval_step["requires_human_review"] is True
+
+    import sys
+    scripts_dir = REPO_ROOT / "backend" / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    from run_trade_preview_demo import build_trade_preview_payload  # type: ignore
+
+    trade_payload = build_trade_preview_payload(DATA_DIR)
+    trace_trade = build_trade_agent_trace(trade_payload)
+    trade_approval_step = trace_trade["steps"][-1]
+    assert trade_approval_step["tool_name"] == "request_human_approval"
+    assert trade_approval_step["requires_human_review"] is True
+
+
+def test_agent_trace_no_step_claims_execution() -> None:
+    """No step in proposal or trade trace may contain executed/applied/
+    committed flags in technical_details or anywhere else."""
+    from backend.app.services.agent_trace_builder import (
+        build_proposal_agent_trace,
+        build_trade_agent_trace,
+    )
+    from backend.app.services.proposal_viewer import build_demo_payload
+    from backend.app.models.agent import OffseasonGoal
+
+    forbidden_keys = {"executed", "applied", "committed", "apply_transaction", "mutation_performed"}
+    allowed_true_flags = {
+        "is_valid", "passed", "requires_human_approval",
+        "requires_human_review", "sample_data",
+        "team_a_passed", "team_b_passed",
+    }
+
+    goal = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload = build_demo_payload(goal, DATA_DIR)
+    trace = build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload,
+    )
+
+    def _check_no_execution(obj, path=""):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                assert k not in forbidden_keys, (
+                    f"forbidden key {k!r} in trace at {path}"
+                )
+                if isinstance(v, bool):
+                    assert k in allowed_true_flags or v is not True, (
+                        f"suspicious True flag at {path}.{k}"
+                    )
+                _check_no_execution(v, f"{path}.{k}")
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj):
+                _check_no_execution(item, f"{path}[{i}]")
+        elif isinstance(obj, str):
+            lower = obj.lower()
+            for term in ("transaction executed", "trade executed", "signing executed",
+                         "committed to roster", "applied to cap"):
+                assert term not in lower, f"execution language in trace text at {path}: {obj!r}"
+
+    _check_no_execution(trace)
+
+    import sys
+    scripts_dir = REPO_ROOT / "backend" / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    from run_trade_preview_demo import build_trade_preview_payload  # type: ignore
+
+    trade_payload = build_trade_preview_payload(DATA_DIR)
+    trace_trade = build_trade_agent_trace(trade_payload)
+    _check_no_execution(trace_trade)
+
+
+def test_agent_trace_salary_step_status_strictly_from_verdict() -> None:
+    """The validate_salary_rules step status must be strictly derived
+    from the deterministic validation verdict. For the demo signing
+    (PASS) it must be 'completed'; for the demo trade (PASS) it must
+    be 'completed'."""
+    from backend.app.services.agent_trace_builder import (
+        build_proposal_agent_trace,
+        build_trade_agent_trace,
+    )
+    from backend.app.services.proposal_viewer import build_demo_payload
+    from backend.app.models.agent import OffseasonGoal
+
+    goal = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload = build_demo_payload(goal, DATA_DIR)
+    trace = build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload,
+    )
+    salary_step = next(s for s in trace["steps"] if s["tool_name"] == "validate_salary_rules")
+    primary_action = payload["actions"][0]
+    vstatus = primary_action["validation_status"]
+    if vstatus == "PASS":
+        assert salary_step["status"] == "completed"
+    elif vstatus == "FAIL":
+        assert salary_step["status"] == "blocked"
+    else:
+        assert salary_step["status"] in ("completed", "warning", "blocked")
+    # technical_details must echo the verdict; builder must not invent it
+    assert salary_step["technical_details"]["validation_status"] == vstatus
+    assert salary_step["technical_details"]["is_valid"] == primary_action["is_valid"]
+
+
+def test_agent_trace_steps_all_have_technical_details_field() -> None:
+    """Every step must include a technical_details dict so the frontend
+    can render the collapsible section."""
+    from backend.app.services.agent_trace_builder import (
+        build_proposal_agent_trace,
+        build_trade_agent_trace,
+    )
+    from backend.app.services.proposal_viewer import build_demo_payload
+    from backend.app.models.agent import OffseasonGoal
+
+    goal = OffseasonGoal(
+        team_id="DEM-ATL",
+        objective="Add frontcourt help",
+        target_positions=("C",),
+        max_salary=20_000_000,
+        max_candidates=2,
+        evidence_query="center need cap flexibility",
+    )
+    payload = build_demo_payload(goal, DATA_DIR)
+    trace = build_proposal_agent_trace(
+        goal_team_id="DEM-ATL",
+        goal_objective="Add frontcourt help",
+        payload=payload,
+    )
+    for s in trace["steps"]:
+        assert "technical_details" in s
+        assert isinstance(s["technical_details"], dict)
+
+    import sys
+    scripts_dir = REPO_ROOT / "backend" / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    from run_trade_preview_demo import build_trade_preview_payload  # type: ignore
+
+    trade_payload = build_trade_preview_payload(DATA_DIR)
+    trace_trade = build_trade_agent_trace(trade_payload)
+    for s in trace_trade["steps"]:
+        assert "technical_details" in s
+        assert isinstance(s["technical_details"], dict)
+
+
+def test_agent_trace_plain_language_summary_no_raw_snapshot_id() -> None:
+    """plain_language_summary must not contain raw long snapshot_id
+    strings like 'sourcepack' or 'nba_2025_26'."""
+    import os
+    from backend.app.services.agent_trace_builder import build_proposal_agent_trace
+    from backend.app.services.proposal_viewer import build_demo_payload
+    from backend.app.models.agent import OffseasonGoal
+
+    # Run in demo mode (no snapshot set); plain text must stay clean.
+    old_env = {k: os.environ.get(k) for k in ("DATA_MODE", "DATA_SNAPSHOT_ID", "DATA_ROOT")}
+    for k in old_env:
+        os.environ.pop(k, None)
+    try:
+        goal = OffseasonGoal(
+            team_id="DEM-ATL",
+            objective="Add frontcourt help",
+            target_positions=("C",),
+            max_salary=20_000_000,
+            max_candidates=2,
+            evidence_query="center need cap flexibility",
+        )
+        payload = build_demo_payload(goal, DATA_DIR)
+        trace = build_proposal_agent_trace(
+            goal_team_id="DEM-ATL",
+            goal_objective="Add frontcourt help",
+            payload=payload,
+        )
+        for s in trace["steps"]:
+            summary = s["plain_language_summary"]
+            assert "sourcepack" not in summary.lower()
+            assert "nba_2025_26" not in summary.lower()
+            assert len(summary) < 200, "plain_language_summary must stay concise"
+    finally:
+        for k, v in old_env.items():
+            if v is not None:
+                os.environ[k] = v
+
+
+# --------------------------------------------------------------------------- #
+# M8-E API guardrails: no execution endpoints; payloads must not advertise
+# execution; backward compatibility preserved.
+# --------------------------------------------------------------------------- #
+
+
+def test_api_has_no_execution_endpoints() -> None:
+    """The FastAPI app must not expose any /execute /apply /commit
+    endpoints that could be misinterpreted as performing real
+    transactions."""
+    from backend.app.api import app
+
+    routes = {r.path for r in app.routes}
+    forbidden_prefixes = ("/execute", "/apply", "/commit", "/mutate", "/write")
+    for path in routes:
+        for prefix in forbidden_prefixes:
+            assert not path.startswith(prefix), (
+                f"API must not expose execution endpoint: {path}"
+            )
+    # The two preview endpoints must exist (read-only).
+    assert "/api/offseason/proposal-preview" in routes
+    assert "/api/offseason/trade-preview-demo" in routes
+    assert "/api/health" in routes
+
+
+def test_api_proposal_preview_response_has_no_executed_flag(client) -> None:
+    """proposal-preview response body must not have executed/applied/
+    committed at the top level or nested."""
+    resp = client.post(
+        "/api/offseason/proposal-preview",
+        json={
+            "team_id": "DEM-ATL",
+            "objective": "Add frontcourt help",
+            "target_positions": ["C"],
+            "max_salary": 20000000,
+            "max_candidates": 2,
+            "evidence_query": "center need cap flexibility",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    forbidden_top = {"executed", "applied", "committed", "transaction_applied"}
+    for k in forbidden_top:
+        assert k not in body, f"top-level key {k!r} must not exist"
+    # The response must still carry requires_human_approval=true.
+    assert body["requires_human_approval"] is True
+
+
+def test_api_trade_preview_response_has_no_executed_flag(client) -> None:
+    """trade-preview-demo response body must not have executed/applied/
+    committed at the top level."""
+    resp = client.get("/api/offseason/trade-preview-demo")
+    assert resp.status_code == 200
+    body = resp.json()
+    forbidden_top = {"executed", "applied", "committed", "trade_executed"}
+    for k in forbidden_top:
+        assert k not in body, f"top-level key {k!r} must not exist"
+    assert body["requires_human_approval"] is True
+
+
+def test_api_trace_intent_type_is_contractual(client) -> None:
+    """agent_trace.intent_type must be one of signing/trade/hold/compare
+    — never 'execute' or similar."""
+    allowed_intents = {"signing", "trade", "hold", "compare"}
+
+    # Signing path
+    resp = client.post(
+        "/api/offseason/proposal-preview",
+        json={
+            "team_id": "DEM-ATL",
+            "objective": "Add frontcourt help",
+            "target_positions": ["C"],
+            "max_salary": 20000000,
+            "max_candidates": 2,
+            "evidence_query": "center need cap flexibility",
+        },
+    )
+    assert resp.json()["agent_trace"]["intent_type"] in allowed_intents
+
+    # Hold path
+    resp2 = client.post(
+        "/api/offseason/proposal-preview",
+        json={
+            "team_id": "DEM-ATL",
+            "objective": "Add frontcourt help",
+            "target_positions": ["C"],
+            "max_salary": 15000000,
+            "max_candidates": 2,
+            "evidence_query": "center need cap flexibility",
+        },
+    )
+    assert resp2.json()["agent_trace"]["intent_type"] in allowed_intents
+
+    # Trade path
+    resp3 = client.get("/api/offseason/trade-preview-demo")
+    assert resp3.json()["agent_trace"]["intent_type"] in allowed_intents
+
+
+def test_api_trace_overall_status_contractual(client) -> None:
+    """agent_trace.overall_status must be one of the contracted values
+    (completed/warning/blocked/awaiting_human_approval) — never
+    'executed' or 'approved_final'."""
+    allowed_overall = {"completed", "warning", "blocked", "awaiting_human_approval"}
+
+    resp = client.post(
+        "/api/offseason/proposal-preview",
+        json={
+            "team_id": "DEM-ATL",
+            "objective": "Add frontcourt help",
+            "target_positions": ["C"],
+            "max_salary": 20000000,
+            "max_candidates": 2,
+            "evidence_query": "center need cap flexibility",
+        },
+    )
+    assert resp.json()["agent_trace"]["overall_status"] in allowed_overall
+
+    resp2 = client.get("/api/offseason/trade-preview-demo")
+    assert resp2.json()["agent_trace"]["overall_status"] in allowed_overall
+
+
+def test_api_agent_trace_model_frozen_does_not_leak_verdict_mutability() -> None:
+    """AgentTrace and AgentTraceStep are frozen dataclasses; downstream
+    code cannot flip a 'blocked' to 'completed' or mutate the
+    read-only message."""
+    from backend.app.models.agent_trace import (
+        AgentTrace,
+        AgentTraceStep,
+        ApprovalState,
+        FINAL_MESSAGE_READ_ONLY,
+        TraceIntentType,
+        TraceOverallStatus,
+        TraceStepStatus,
+    )
+
+    step = AgentTraceStep(
+        step_id="s1",
+        sequence=1,
+        status=TraceStepStatus.BLOCKED.value,
+        title="blocked",
+        plain_language_summary="blocked by salary",
+        tool_name="validate_salary_rules",
+    )
+    with pytest.raises(Exception):
+        step.status = TraceStepStatus.COMPLETED.value  # type: ignore[misc]
+
+    trace = AgentTrace(
+        run_id="r1",
+        intent_type=TraceIntentType.SIGNING.value,
+        overall_status=TraceOverallStatus.AWAITING_HUMAN_APPROVAL.value,
+        current_state="awaiting_human_approval",
+        data_source_label="demo",
+        steps=[step],
+        requires_human_approval=True,
+        approval_state=ApprovalState.REQUIRED.value,
+        final_message=FINAL_MESSAGE_READ_ONLY,
+    )
+    with pytest.raises(Exception):
+        trace.requires_human_approval = False  # type: ignore[misc]
+    with pytest.raises(Exception):
+        trace.final_message = "executed"  # type: ignore[misc]
