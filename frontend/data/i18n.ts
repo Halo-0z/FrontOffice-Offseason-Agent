@@ -650,39 +650,50 @@ export const copy = {
       en: "Expand to see transaction_id, validation issues, salary matching details, cap summary, raw depth chart fields, and all limitations.",
     } as Bilingual,
 
-    // Field labels specific to trade
-    transactionId: { zh: "交易预览 ID", en: "transaction_id" } as Bilingual,
-    transactionType: { zh: "交易类型", en: "transaction_type" } as Bilingual,
-    validationStatus: { zh: "规则状态", en: "validation_status" } as Bilingual,
-    isValid: { zh: "是否通过", en: "is_valid" } as Bilingual,
-    playerId: { zh: "球员 ID", en: "player_id" } as Bilingual,
-    contractId: { zh: "合同 ID", en: "contract_id" } as Bilingual,
-    assetType: { zh: "资产类型", en: "asset_type" } as Bilingual,
-    fromTeam: { zh: "送出方", en: "from_team_id" } as Bilingual,
-    toTeam: { zh: "接收方", en: "to_team_id" } as Bilingual,
-    outgoingSalary: { zh: "送出薪资", en: "outgoing_salary" } as Bilingual,
-    incomingSalary: { zh: "得到薪资", en: "incoming_salary" } as Bilingual,
-    threshold: { zh: "配平阈值", en: "threshold" } as Bilingual,
-    passed: { zh: "是否配平", en: "passed" } as Bilingual,
-    capBefore: { zh: "交易前薪资概览", en: "cap_summary_before" } as Bilingual,
-    capAfter: { zh: "交易后薪资概览", en: "cap_summary_after" } as Bilingual,
-    totalSalary: { zh: "总薪资", en: "total_salary" } as Bilingual,
-    capSpace: { zh: "薪资空间", en: "cap_space" } as Bilingual,
-    taxDistance: { zh: "距奢侈税线", en: "tax_distance" } as Bilingual,
-    firstApronDistance: { zh: "距第一土豪线", en: "first_apron_distance" } as Bilingual,
-    secondApronDistance: { zh: "距第二土豪线", en: "second_apron_distance" } as Bilingual,
-    rosterCount: { zh: "阵容人数", en: "roster_count" } as Bilingual,
-    depthChartAfter: { zh: "交易后深度图", en: "depth_chart_after" } as Bilingual,
-    rosterNeedAfter: { zh: "交易后阵容需求", en: "roster_need_after" } as Bilingual,
-    position: { zh: "位置", en: "position" } as Bilingual,
-    starter: { zh: "首发", en: "starter" } as Bilingual,
-    backups: { zh: "替补", en: "backups" } as Bilingual,
-    needLevel: { zh: "需求等级", en: "need_level" } as Bilingual,
-    priority: { zh: "优先级", en: "priority" } as Bilingual,
-    currentCount: { zh: "当前人数", en: "current_count" } as Bilingual,
-    targetCount: { zh: "目标人数", en: "target_count" } as Bilingual,
+    // Field labels specific to trade (M8-F2b: plain English, not snake_case)
+    transactionId: { zh: "交易预览 ID", en: "Transaction ID" } as Bilingual,
+    transactionType: { zh: "交易类型", en: "Transaction type" } as Bilingual,
+    validationStatus: { zh: "规则状态", en: "Rule check" } as Bilingual,
+    isValid: { zh: "是否通过", en: "Passed" } as Bilingual,
+    playerId: { zh: "球员 ID", en: "Player ID" } as Bilingual,
+    contractId: { zh: "合同 ID", en: "Contract ID" } as Bilingual,
+    assetType: { zh: "资产类型", en: "Asset type" } as Bilingual,
+    fromTeam: { zh: "送出方", en: "From" } as Bilingual,
+    toTeam: { zh: "接收方", en: "To" } as Bilingual,
+    outgoingSalary: { zh: "送出薪资", en: "Sending salary" } as Bilingual,
+    incomingSalary: { zh: "得到薪资", en: "Receiving salary" } as Bilingual,
+    threshold: { zh: "配平阈值", en: "Matching threshold" } as Bilingual,
+    passed: { zh: "是否配平", en: "Salary match" } as Bilingual,
+    capBefore: { zh: "交易前薪资概览", en: "Before trade" } as Bilingual,
+    capAfter: { zh: "交易后薪资概览", en: "After trade" } as Bilingual,
+    totalSalary: { zh: "总薪资", en: "Total salary" } as Bilingual,
+    capSpace: { zh: "薪资空间", en: "Cap space" } as Bilingual,
+    taxDistance: { zh: "距奢侈税线", en: "Tax line distance" } as Bilingual,
+    firstApronDistance: { zh: "距第一土豪线", en: "First apron distance" } as Bilingual,
+    secondApronDistance: { zh: "距第二土豪线", en: "Second apron distance" } as Bilingual,
+    rosterCount: { zh: "阵容人数", en: "Roster count" } as Bilingual,
+    depthChartAfter: { zh: "交易后深度图", en: "Post-trade depth chart" } as Bilingual,
+    rosterNeedAfter: { zh: "交易后阵容需求", en: "Post-trade roster needs" } as Bilingual,
+    position: { zh: "位置", en: "Position" } as Bilingual,
+    starter: { zh: "首发", en: "Starter" } as Bilingual,
+    backups: { zh: "替补", en: "Backups" } as Bilingual,
+    needLevel: { zh: "需求等级", en: "Need level" } as Bilingual,
+    priority: { zh: "优先级", en: "Priority" } as Bilingual,
+    currentCount: { zh: "当前人数", en: "Current count" } as Bilingual,
+    targetCount: { zh: "目标人数", en: "Target count" } as Bilingual,
     noIssues: { zh: "没有未通过的检查。", en: "No issues — all checks passed." } as Bilingual,
     noWarnings: { zh: "没有警告。", en: "No warnings." } as Bilingual,
+    // M8-F2b: direction badges for asset cards
+    outBadge: { zh: "送出", en: "Sending out" } as Bilingual,
+    inBadge: { zh: "得到", en: "Receiving" } as Bilingual,
+    passBadge: { zh: "通过", en: "Pass" } as Bilingual,
+    failBadge: { zh: "未通过", en: "Fail" } as Bilingual,
+    // M8-F2b: asset type mapping
+    playerContractType: { zh: "球员合同", en: "Player contract" } as Bilingual,
+    // M8-F2b: priority/need level user-facing labels
+    priorityHigh: { zh: "高", en: "High" } as Bilingual,
+    priorityMedium: { zh: "中", en: "Medium" } as Bilingual,
+    priorityLow: { zh: "低", en: "Low" } as Bilingual,
   } as const,
 
   // ---- Data source / fallback indicators (M7-B) ----
@@ -723,8 +734,8 @@ export const copy = {
     fallbackData: { zh: "本地静态样例", en: "Local static sample" } as Bilingual,
     apiAddr: { zh: "API 地址", en: "API address" } as Bilingual,
     demoDataWarn: {
-      zh: "这些球队、球员、薪资和交易结果是 sample/demo 数据，不代表真实 NBA 数据。",
-      en: "These teams, players, salaries and trade results are sample/demo data — not real NBA data.",
+      zh: "这些球队、球员、薪资和交易结果均为演示数据，不代表真实 NBA 数据。",
+      en: "All teams, players, salaries, and trade results are demo data — not real NBA data.",
     } as Bilingual,
     offlineWarn: {
       zh: "正在使用本地静态 fallback 样例。请确认 uvicorn 已启动。",
@@ -818,20 +829,20 @@ export const copy = {
     workspaceTitle: { zh: "Offseason Console", en: "Offseason Console" } as Bilingual,
     workspaceEyebrow: { zh: "休赛期决策", en: "Offseason Decision" } as Bilingual,
     readOnlyBadge: { zh: "只读预览", en: "Read-only preview" } as Bilingual,
-    // Inspector sections
-    inspectorPipeline: { zh: "Pipeline", en: "Pipeline" } as Bilingual,
-    inspectorIndicators: { zh: "状态指标", en: "Status Indicators" } as Bilingual,
-    inspectorKeyMetrics: { zh: "关键指标", en: "Key Metrics" } as Bilingual,
-    inspectorDataSource: { zh: "数据源", en: "Data Source" } as Bilingual,
+    // Inspector sections (M8-F2: Pipeline retitled to user-facing "生成进度")
+    inspectorPipeline: { zh: "生成进度", en: "Generation progress" } as Bilingual,
+    inspectorIndicators: { zh: "状态指标", en: "Status indicators" } as Bilingual,
+    inspectorKeyMetrics: { zh: "关键指标", en: "Key metrics" } as Bilingual,
+    inspectorDataSource: { zh: "数据来源", en: "Data source" } as Bilingual,
     // Trade console specific
-    tradeMatchup: { zh: "交易对阵", en: "Trade Matchup" } as Bilingual,
-    tradeSendReceive: { zh: "送出 / 得到", en: "Send / Receive" } as Bilingual,
-    tradePostImpact: { zh: "交易后影响", en: "Post-Trade Impact" } as Bilingual,
-    tradeWhyApproval: { zh: "为什么仍需人工确认", en: "Why human approval" } as Bilingual,
-    // Fit score display
-    fitScoreLabel: { zh: "匹配分", en: "fit_score" } as Bilingual,
-    capImpactLabel: { zh: "薪资占用", en: "cap_impact" } as Bilingual,
-    riskLevelLabel: { zh: "风险等级", en: "risk_level" } as Bilingual,
+    tradeMatchup: { zh: "交易对阵", en: "Trade matchup" } as Bilingual,
+    tradeSendReceive: { zh: "送出 / 得到", en: "Send / receive" } as Bilingual,
+    tradePostImpact: { zh: "交易后影响", en: "Post-trade impact" } as Bilingual,
+    tradeWhyApproval: { zh: "为什么仍需人工确认", en: "Why human approval is needed" } as Bilingual,
+    // Fit score display (M8-F2: English labels are plain-language, not snake_case)
+    fitScoreLabel: { zh: "匹配分", en: "Fit score" } as Bilingual,
+    capImpactLabel: { zh: "薪资占用", en: "Cap impact" } as Bilingual,
+    riskLevelLabel: { zh: "风险等级", en: "Risk level" } as Bilingual,
     // Inspector indicator labels
     indicatorProposalStatus: { zh: "方案状态", en: "Proposal status" } as Bilingual,
     indicatorEvaluation: { zh: "检查结果", en: "Evaluation" } as Bilingual,
@@ -953,30 +964,30 @@ export const copy = {
   // are hidden by default in a collapsed <details> section. The main
   // card speaks to a non-technical user.
   agentTrace: {
-    // Card title + subtitle
-    cardTitle: { zh: "Agent 执行步骤", en: "Agent Execution Steps" } as Bilingual,
+    // Card title + subtitle  (M8-F2: renamed to plain-language "方案生成过程")
+    cardTitle: { zh: "方案生成过程", en: "How this preview was built" } as Bilingual,
     cardSubtitle: {
-      zh: "下面是本次建议从读取数据到等待人工确认的完整链路。",
-      en: "This shows how the agent moved from data reading to human approval.",
+      zh: "下面是从理解需求到生成预览、等待你确认的完整过程。",
+      en: "This shows how the preview was built, from understanding your request to awaiting your confirmation.",
     } as Bilingual,
 
     // Empty state (no proposal/trade run yet)
     emptyState: {
-      zh: "运行一次签约建议或交易预览后，这里会显示 Agent 链路。",
-      en: "Run a signing recommendation or trade preview to see the agent trace.",
+      zh: "运行一次签约建议或交易预览后，这里会显示助手执行链路。",
+      en: "Run a signing recommendation or trade preview to see the assistant steps.",
     } as Bilingual,
 
     // Fallback when API didn't return agent_trace
-    fallbackTitle: { zh: "未返回 Agent 链路", en: "No agent trace" } as Bilingual,
+    fallbackTitle: { zh: "未返回助手链路", en: "No assistant trace" } as Bilingual,
     fallbackBody: {
-      zh: "当前结果没有返回 Agent 链路，页面仍显示原有预览。",
-      en: "This result did not include an agent trace, so the original preview is still shown.",
+      zh: "当前结果没有返回助手链路，页面仍显示原有预览。",
+      en: "This result did not include an assistant trace, so the original preview is still shown.",
     } as Bilingual,
 
     // Empty steps
     emptySteps: {
-      zh: "Agent 链路为空，但预览结果仍可查看。",
-      en: "The agent trace is empty, but the preview result is still available.",
+      zh: "助手链路为空，但预览结果仍可查看。",
+      en: "The assistant trace is empty, but the preview result is still available.",
     } as Bilingual,
 
     // Run-level summary labels
@@ -995,9 +1006,10 @@ export const copy = {
     labelNeedsReview: { zh: "需人工复核", en: "Needs review" } as Bilingual,
 
     // Step status badges (plain language, not engineering jargon)
+    // M8-F1: "blocked" displays as "已安全拦截" per user-facing requirement.
     statusCompleted: { zh: "已完成", en: "Completed" } as Bilingual,
     statusWarning: { zh: "有提醒", en: "Has warning" } as Bilingual,
-    statusBlocked: { zh: "已阻断", en: "Blocked" } as Bilingual,
+    statusBlocked: { zh: "已安全拦截", en: "Safely blocked" } as Bilingual,
     statusRunning: { zh: "运行中", en: "Running" } as Bilingual,
     statusPending: { zh: "等待中", en: "Pending" } as Bilingual,
     statusUnknown: { zh: "未知", en: "Unknown" } as Bilingual,

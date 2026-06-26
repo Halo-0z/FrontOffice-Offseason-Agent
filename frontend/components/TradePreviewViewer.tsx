@@ -57,11 +57,80 @@ function needLevelClass(level: string): string {
   return "depth-slot--low";
 }
 
+function needLevelLabel(level: string, lang: Lang): string {
+  const t = copy.trade;
+  const l = level.toLowerCase();
+  if (l === "high") return t.priorityHigh[lang];
+  if (l === "medium") return t.priorityMedium[lang];
+  if (l === "low") return t.priorityLow[lang];
+  return level;
+}
+
 function priorityClass(priority: string): string {
   const p = priority.toLowerCase();
   if (p === "high") return "need-item--high";
   if (p === "medium") return "need-item--medium";
   return "need-item--low";
+}
+
+function priorityLabel(priority: string, lang: Lang): string {
+  return needLevelLabel(priority, lang);
+}
+
+/**
+ * M8-F2b: Translate the English demo-payload summary strings into
+ * user-friendly language. The demo payload contains hardcoded English
+ * like "Team (DEM-ATL) post-trade total_salary: $78,000,000, cap_space: $62,000,000."
+ * which is not appropriate for the main UI. We parse the known patterns
+ * and rebuild plain-language sentences without modifying the payload.
+ */
+function translateCapImpactSummary(raw: string | null, lang: Lang): string {
+  if (!raw) return "";
+  // Pattern: "Team (XXX) post-trade total_salary: $YYY, cap_space: $ZZZ."
+  const m = raw.match(/Team \(([^)]+)\) post-trade total_salary:\s*\$([\d,]+),\s*cap_space:\s*\$([\d,]+)\.?/i);
+  if (!m) return raw;
+  const team = m[1];
+  const total = "$" + m[2];
+  const cap = "$" + m[3];
+  return lang === "zh"
+    ? `${team} 交易后总薪资 ${total}，薪资空间 ${cap}。`
+    : `${team} post-trade salary ${total}, cap space ${cap}.`;
+}
+
+function translateRosterImpactSummary(raw: string | null, lang: Lang): string {
+  if (!raw) return "";
+  // Pattern: "Team (XXX) post-trade roster: N players, M position need(s), K position strength(s)."
+  const m = raw.match(/Team \(([^)]+)\) post-trade roster:\s*(\d+)\s+players?,\s*(\d+)\s+position need\(s\),\s*(\d+)\s+position strength\(s\)\.?/i);
+  if (!m) return raw;
+  const team = m[1];
+  const players = m[2];
+  const needs = m[3];
+  const strengths = m[4];
+  return lang === "zh"
+    ? `${team} 交易后阵容 ${players} 人，${needs} 个位置有需求，${strengths} 个位置有充足深度。`
+    : `${team} post-trade roster: ${players} players, ${needs} position need(s), ${strengths} position strength(s).`;
+}
+
+function translateDepthImpactSummary(raw: string | null, lang: Lang): string {
+  if (!raw) return "";
+  // Pattern: "Team (XXX) post-trade depth chart: M/5 positions with a starter."
+  const m = raw.match(/Team \(([^)]+)\) post-trade depth chart:\s*(\d+)\/5\s+positions with a starter\.?/i);
+  if (!m) return raw;
+  const team = m[1];
+  const starters = m[2];
+  return lang === "zh"
+    ? `${team} 交易后深度图：5 个位置中 ${starters} 个有首发球员。`
+    : `${team} post-trade depth chart: ${starters}/5 positions with a starter.`;
+}
+
+function severityLabel(severity: string, lang: Lang): string {
+  const zh = lang === "zh";
+  switch (severity) {
+    case "FAIL": return zh ? "未通过" : "Fail";
+    case "WARNING": return zh ? "警告" : "Warning";
+    case "INFO": return zh ? "提示" : "Info";
+    default: return severity;
+  }
 }
 
 // ---- Sub-components ----
@@ -76,12 +145,15 @@ function AssetCard({
   direction: "out" | "in";
 }) {
   const t = copy.trade;
+  const assetTypeLabel = asset.asset_type === "PLAYER_CONTRACT"
+    ? t.playerContractType[lang]
+    : asset.asset_type;
   return (
     <div className={`trade-asset ${direction === "out" ? "trade-asset--out" : "trade-asset--in"}`}>
       <div className="trade-asset__head">
         <span className="trade-asset__player">{asset.player_id}</span>
         <span className={`badge ${direction === "out" ? "badge--warn" : "badge--ok"}`}>
-          {direction === "out" ? "OUT" : "IN"}
+          {direction === "out" ? t.outBadge[lang] : t.inBadge[lang]}
         </span>
       </div>
       <div className="field-grid">
@@ -103,7 +175,7 @@ function AssetCard({
         </div>
         <div className="field">
           <p className="field__label">{t.assetType[lang]}</p>
-          <p className="field__value field__value--mono">{asset.asset_type}</p>
+          <p className="field__value field__value--mono">{assetTypeLabel}</p>
         </div>
       </div>
     </div>
@@ -189,7 +261,7 @@ function DepthChartTable({ slots, lang }: { slots: DepthChartSlotData[]; lang: L
               </td>
               <td>
                 <span className={`badge badge--${slot.need_level === "high" ? "bad" : slot.need_level === "medium" ? "warn" : "ok"}`}>
-                  {slot.need_level}
+                  {needLevelLabel(slot.need_level, lang)}
                 </span>
               </td>
             </tr>
@@ -212,7 +284,7 @@ function RosterNeedList({ needs, lang }: { needs: PositionNeedData[]; lang: Lang
             {t.currentCount[lang]}: {need.current_count} / {t.targetCount[lang]}: {need.target_count}
           </span>
           <span className={`badge badge--${need.priority === "high" ? "bad" : need.priority === "medium" ? "warn" : "ok"}`}>
-            {need.priority}
+            {priorityLabel(need.priority, lang)}
           </span>
         </li>
       ))}
@@ -266,19 +338,19 @@ function TeamPostTradeCard({
         {data.cap_impact_summary && (
           <div className="impact-card">
             <p className="impact-card__label">{t.capImpactLabel[lang]}</p>
-            <p className="impact-card__body">{data.cap_impact_summary}</p>
+            <p className="impact-card__body">{translateCapImpactSummary(data.cap_impact_summary, lang)}</p>
           </div>
         )}
         {data.roster_impact_summary && (
           <div className="impact-card">
             <p className="impact-card__label">{t.rosterImpactLabel[lang]}</p>
-            <p className="impact-card__body">{data.roster_impact_summary}</p>
+            <p className="impact-card__body">{translateRosterImpactSummary(data.roster_impact_summary, lang)}</p>
           </div>
         )}
         {data.depth_chart_impact_summary && (
           <div className="impact-card">
             <p className="impact-card__label">{t.depthChartImpactLabel[lang]}</p>
-            <p className="impact-card__body">{data.depth_chart_impact_summary}</p>
+            <p className="impact-card__body">{translateDepthImpactSummary(data.depth_chart_impact_summary, lang)}</p>
           </div>
         )}
       </div>
@@ -557,7 +629,11 @@ export default function TradePreviewViewer({ payload, lang, variant = "report" }
       {/* Salary matching summary (user-readable) */}
       <section className="section">
         <h3 className="section__title">{t.salaryMatchTitle[lang]}</h3>
-        <p className="section__hint">{sm.rule}</p>
+        <p className="section__hint">
+          {lang === "zh"
+            ? "规则：得到薪资 ≤ 送出薪资 × 125% + $100,000（样例规则，非真实 CBA）。"
+            : "Rule: incoming ≤ outgoing × 125% + $100,000 (sample rule, not real CBA)."}
+        </p>
         <div className="salary-match-grid">
           <div className={`salary-match-card ${sm.team_a.passed ? "salary-match-card--ok" : "salary-match-card--bad"}`}>
             <p className="salary-match-card__team">{sm.team_a.team_id}</p>
@@ -566,7 +642,7 @@ export default function TradePreviewViewer({ payload, lang, variant = "report" }
               {t.incomingSalary[lang]}: {formatSalary(sm.team_a.incoming_salary, lang)}
             </p>
             <span className={`badge ${sm.team_a.passed ? "badge--ok" : "badge--bad"}`}>
-              {sm.team_a.passed ? "PASS" : "FAIL"}
+              {sm.team_a.passed ? t.passBadge[lang] : t.failBadge[lang]}
             </span>
           </div>
           <div className={`salary-match-card ${sm.team_b.passed ? "salary-match-card--ok" : "salary-match-card--bad"}`}>
@@ -576,7 +652,7 @@ export default function TradePreviewViewer({ payload, lang, variant = "report" }
               {t.incomingSalary[lang]}: {formatSalary(sm.team_b.incoming_salary, lang)}
             </p>
             <span className={`badge ${sm.team_b.passed ? "badge--ok" : "badge--bad"}`}>
-              {sm.team_b.passed ? "PASS" : "FAIL"}
+              {sm.team_b.passed ? t.passBadge[lang] : t.failBadge[lang]}
             </span>
           </div>
         </div>

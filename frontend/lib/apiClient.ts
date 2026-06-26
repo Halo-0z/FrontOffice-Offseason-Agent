@@ -7,6 +7,12 @@
  * every fetch function rejects with an `ApiError`; the page then
  * falls back to the static sample payloads.
  *
+ * M8-F1: added `fetchOrchestratorPreview` for POST /api/agent/orchestrate-preview
+ * (M8-E5-B). Signing and trade modes now call the orchestrator first;
+ * the legacy proposal/trade APIs remain as a fallback layer, and the
+ * static local samples are the final fallback. The orchestrator is
+ * preview-only — it never executes or mutates anything.
+ *
  * Boundaries (same as the rest of the project):
  *   - sample / simulation data only
  *   - no real NBA API, no LLM, no MCP
@@ -121,17 +127,29 @@ export type AgentTraceIntentType =
   | "hold"
   | "compare";
 
-/** The full agent trace envelope returned by the backend. */
+/** The full agent trace envelope returned by the backend.
+ *
+ * Fields are intentionally loose (many optional) so this interface
+ * covers both the inner 8-step trace (from proposal-preview /
+ * trade-preview-demo endpoints) and the orchestrator 5-step trace
+ * (from /api/agent/orchestrate-preview). The orchestrator trace
+ * omits `current_state`, `approval_state`, and `intent_type`; the
+ * card renders defensive fallbacks for missing fields so a malformed
+ * or variant trace never crashes the page.
+ */
 export interface AgentTrace {
   run_id: string;
-  intent_type: AgentTraceIntentType | string;
-  overall_status: AgentTraceOverallStatus | string;
-  current_state: string;
+  intent_type?: AgentTraceIntentType | string;
+  overall_status?: AgentTraceOverallStatus | string;
+  current_state?: string;
   data_source_label: string;
   steps: AgentTraceStep[];
   requires_human_approval: boolean;
-  approval_state: AgentTraceApprovalState | string;
+  approval_state?: AgentTraceApprovalState | string;
   final_message: string;
+  // M8-F1: orchestrator trace uses `intent` instead of `intent_type`
+  // and `overall_status` instead of separate status/current_state.
+  intent?: string;
 }
 
 /**
@@ -320,6 +338,69 @@ export interface HealthResponse {
 
 export async function fetchHealth(): Promise<HealthResponse> {
   return fetchJson("/api/health");
+}
+
+// --------------------------------------------------------------------------- //
+// M8-F1: Orchestrator preview API (preview-only)
+// --------------------------------------------------------------------------- //
+
+/** Request body for POST /api/agent/orchestrate-preview. */
+export interface OrchestratorPreviewRequest {
+  intent: "signing_preview" | "trade_preview_demo" | "hold" | string;
+  team_id?: string;
+  locale?: string;
+  objective?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Response shape for POST /api/agent/orchestrate-preview.
+ *
+ * `preview_payload` is the deterministic preview result:
+ *   - For signing_preview: a DemoPayload (same shape as proposal-preview response)
+ *   - For trade_preview_demo: a DemoTradePayload (same shape as trade-preview-demo response)
+ *   - For hold / unsupported intent: a thin hold/blocked payload
+ *
+ * `agent_trace` is the 5-step orchestrator-level trace (intake → route →
+ * preview → summarize → approval gate). This is separate from the inner
+ * 8-step trace embedded inside the legacy endpoints; the card renders
+ * whichever trace is present.
+ *
+ * `warnings` and `limitations` are plain-language strings surfaced to
+ * the user (warnings are non-blocking, limitations are hard boundaries).
+ */
+export interface OrchestratorPreviewResponse {
+  intent: string;
+  status: "awaiting_human_approval" | "blocked" | "hold" | string;
+  requires_human_approval: boolean;
+  preview_payload: Record<string, unknown>;
+  agent_trace: AgentTrace;
+  warnings: string[];
+  limitations: string[];
+}
+
+/**
+ * POST /api/agent/orchestrate-preview
+ *
+ * Preview-only orchestrator entry point (M8-E5-B / M8-F1). Does not
+ * execute, apply, commit, or mutate anything. Always returns
+ * `requires_human_approval: true`. Unsupported intents are blocked
+ * (not guessed). Forbidden metadata keys return HTTP 400.
+ *
+ * Signing and trade modes call this first; if the call fails, the page
+ * falls back to the legacy proposal/trade APIs, then to local static
+ * samples.
+ */
+export async function fetchOrchestratorPreview(
+  req: OrchestratorPreviewRequest,
+): Promise<OrchestratorPreviewResponse> {
+  return fetchJson<OrchestratorPreviewResponse>(
+    "/api/agent/orchestrate-preview",
+    {
+      method: "POST",
+      body: JSON.stringify(req),
+    },
+  );
 }
 
 // --------------------------------------------------------------------------- //
