@@ -377,6 +377,7 @@ export interface OrchestratorPreviewResponse {
   agent_trace: AgentTrace;
   warnings: string[];
   limitations: string[];
+  intelligence_summary?: Record<string, unknown>;
 }
 
 /**
@@ -396,6 +397,66 @@ export async function fetchOrchestratorPreview(
 ): Promise<OrchestratorPreviewResponse> {
   return fetchJson<OrchestratorPreviewResponse>(
     "/api/agent/orchestrate-preview",
+    {
+      method: "POST",
+      body: JSON.stringify(req),
+    },
+  );
+}
+
+// --------------------------------------------------------------------------- //
+// M9-D: Natural-language preview API (frontend wiring)
+// --------------------------------------------------------------------------- //
+
+export type NaturalLanguageFlowStatus =
+  | "preview_generated"
+  | "preview_not_generated"
+  | "needs_clarification"
+  | "blocked"
+  | string;
+
+export interface NaturalLanguagePreviewRequest {
+  user_text: string;
+  team_id?: string;
+  locale?: string;
+  constraints?: Record<string, unknown> | unknown[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface NaturalLanguageClassification {
+  classification_status: "resolved" | "needs_clarification" | "blocked" | string;
+  resolved_intent: "signing_preview" | "trade_preview_demo" | "hold" | string | null;
+  confidence: number;
+  needs_clarification: boolean;
+  safety_flags: string[];
+  blocked_reason: string | null;
+  clarification_questions: string[];
+  approval_note: string;
+  source: string;
+}
+
+export interface NaturalLanguagePreviewResponse {
+  flow_status: NaturalLanguageFlowStatus;
+  classification: NaturalLanguageClassification;
+  preview_result: OrchestratorPreviewResponse | null;
+  requires_human_approval: boolean;
+  safety_notes: string[];
+  source: string;
+}
+
+/**
+ * POST /api/agent/natural-language-preview
+ *
+ * M9-C classify-to-preview flow. This endpoint first classifies the
+ * natural-language request, then generates a read-only preview only
+ * when the backend safety gate allows it. It never executes, applies,
+ * commits, or mutates anything.
+ */
+export async function fetchNaturalLanguagePreview(
+  req: NaturalLanguagePreviewRequest,
+): Promise<NaturalLanguagePreviewResponse> {
+  return fetchJson<NaturalLanguagePreviewResponse>(
+    "/api/agent/natural-language-preview",
     {
       method: "POST",
       body: JSON.stringify(req),

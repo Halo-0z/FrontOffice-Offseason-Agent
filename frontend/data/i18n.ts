@@ -432,9 +432,9 @@ export const copy = {
     } as Bilingual,
     items: [
       {
-        title: { zh: "不会自动批准交易", en: "No auto-approval" } as Bilingual,
+        title: { zh: "不会自行通过交易", en: "No automatic approval" } as Bilingual,
         explain: {
-          zh: "所有动作都需要人工确认，系统不会自动批准任何交易。",
+          zh: "所有动作都需要人工确认，系统不会自行通过任何交易。",
           en: "Every action requires human approval. The system never auto-approves a transaction.",
         } as Bilingual,
       },
@@ -617,7 +617,7 @@ export const copy = {
 
     whyApprovalTitle: { zh: "为什么仍需人工确认", en: "Why human approval is still required" } as Bilingual,
     whyApprovalBody: {
-      zh: "即使交易通过了规则检查，这仍然只是预览。系统不会自动批准任何交易，所有变动都必须由人工确认后才能执行。",
+      zh: "即使交易通过了规则检查，这仍然只是预览。系统不会自行通过任何交易，所有变动都必须由人工确认后才能推进。",
       en: "Even though the trade passed rule checks, this is still a preview. The system never auto-approves a trade — every change must be confirmed by a person before execution.",
     } as Bilingual,
 
@@ -852,6 +852,74 @@ export const copy = {
     // Inspector trade indicators
     indicatorValidationStatus: { zh: "验证状态", en: "Validation status" } as Bilingual,
     indicatorSalaryMatch: { zh: "薪资配平", en: "Salary match" } as Bilingual,
+  } as const,
+
+  // ---- M9-D: Natural-language preview entry ----
+  naturalLanguage: {
+    inputTitle: { zh: "自然语言目标", en: "Natural-language goal" } as Bilingual,
+    inputBadge: { zh: "新增入口", en: "New entry" } as Bilingual,
+    inputLabel: { zh: "用一句话描述你想看的休赛期方向", en: "Describe the offseason direction you want to preview" } as Bilingual,
+    placeholder: {
+      zh: "例如：我想补一个中锋，但不要影响薪资空间",
+      en: "Example: add a center without hurting cap flexibility",
+    } as Bilingual,
+    inputHint: {
+      zh: "系统会先做安全意图识别；只有明确的签约或交易请求才会生成只读预览。",
+      en: "The system classifies the request first; only clear signing or trade requests generate a read-only preview.",
+    } as Bilingual,
+    button: { zh: "解析并预览", en: "Classify and preview" } as Bilingual,
+    buttonLoading: { zh: "解析中…", en: "Classifying…" } as Bilingual,
+    statusIdle: { zh: "待输入", en: "Ready" } as Bilingual,
+    statusReady: { zh: "已返回", en: "Returned" } as Bilingual,
+    statusLoading: { zh: "正在解析", en: "Classifying" } as Bilingual,
+    statusError: { zh: "自然语言入口错误", en: "Natural-language entry error" } as Bilingual,
+    statusSigning: { zh: "已识别为签约预览", en: "Recognized as signing preview" } as Bilingual,
+    statusTrade: { zh: "已识别为交易预览", en: "Recognized as trade preview" } as Bilingual,
+    statusHold: { zh: "已识别为暂不行动", en: "Recognized as hold" } as Bilingual,
+    statusClarify: { zh: "需要澄清", en: "Needs clarification" } as Bilingual,
+    statusBlocked: { zh: "安全拦截", en: "Safely blocked" } as Bilingual,
+    cardEyebrow: { zh: "自然语言入口", en: "Natural-language entry" } as Bilingual,
+    loadingTitle: { zh: "正在判断请求类型", en: "Classifying request" } as Bilingual,
+    loadingBody: {
+      zh: "系统正在先做意图识别和安全检查，尚未生成任何预览。",
+      en: "The system is classifying the request and checking safety first; no preview has been generated yet.",
+    } as Bilingual,
+    previewBody: {
+      zh: "后端已通过安全闸门并生成只读预览。下方结果仍需人工确认后才可采取行动。",
+      en: "The backend passed the safety gate and generated a read-only preview. The result still requires human review before any action.",
+    } as Bilingual,
+    signingBody: {
+      zh: "系统已将这句话识别为签约预览请求，并展示由确定性工具生成的只读签约预览。",
+      en: "The system recognized this as a signing preview request and is showing a read-only signing preview from deterministic tools.",
+    } as Bilingual,
+    tradeBody: {
+      zh: "系统已将这句话识别为交易预览请求，并展示由确定性工具生成的只读交易预览。",
+      en: "The system recognized this as a trade preview request and is showing a read-only trade preview from deterministic tools.",
+    } as Bilingual,
+    holdBody: {
+      zh: "后端没有生成签约或交易预览，因为用户意图是保持观望、保留灵活性。",
+      en: "The backend did not generate a signing or trade preview because the user intent is to hold and preserve flexibility.",
+    } as Bilingual,
+    holdNote: {
+      zh: "这不是失败，也没有动作需要审批；只是确认当前自然语言请求选择暂不行动。",
+      en: "This is not a failure, and there is no action to approve; it confirms the natural-language request chose to hold.",
+    } as Bilingual,
+    clarifyBody: {
+      zh: "这个请求还不够明确。请根据下面的问题改写目标；系统不会自动生成预览，也不会把它兜底成暂不行动。",
+      en: "This request is not specific enough. Rewrite it using the questions below; the system will not auto-generate a preview or fall back to hold.",
+    } as Bilingual,
+    blockedBody: {
+      zh: "这个请求包含执行、绕过审批或修改数据的语义，系统已安全拦截。你可以改写为“生成只读预览”。",
+      en: "This request includes execution, approval-bypass, or data-modification language, so the system safely blocked it. Try asking for a read-only preview instead.",
+    } as Bilingual,
+    errorBody: {
+      zh: "自然语言入口暂时不可用。你仍然可以使用下方旧的签约、交易或严格预算按钮。",
+      en: "The natural-language entry is temporarily unavailable. You can still use the existing signing, trade, or strict-budget buttons below.",
+    } as Bilingual,
+    techToggle: { zh: "查看技术详情", en: "View technical details" } as Bilingual,
+    techFlowStatus: { zh: "flow_status", en: "flow_status" } as Bilingual,
+    techClassification: { zh: "classification", en: "classification" } as Bilingual,
+    techSafetyNotes: { zh: "safety_notes", en: "safety_notes" } as Bilingual,
   } as const,
 
   // ---- M8-D4: User-friendly data source display ----

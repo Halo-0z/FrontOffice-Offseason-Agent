@@ -556,6 +556,200 @@ img {
   font-weight: 500;
 }
 
+/* M9-D natural-language entry */
+.nl-input-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.nl-input-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nl-input-panel__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--card-foreground);
+}
+
+.nl-input-panel__badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--brand-700);
+  background: var(--brand-100);
+  border: 1px solid rgba(201, 100, 66, 0.22);
+  border-radius: var(--radius-sm);
+  padding: 2px 5px;
+  white-space: nowrap;
+}
+
+.nl-input-panel__textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 78px;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--popover);
+  color: var(--card-foreground);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.45;
+  box-sizing: border-box;
+}
+
+.nl-input-panel__textarea:focus {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 2px rgba(201, 100, 66, 0.15);
+}
+
+.nl-input-panel__hint {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.nl-input-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nl-input-panel__button {
+  flex-shrink: 0;
+}
+
+.nl-status-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--popover);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nl-status-card--ok {
+  border-color: rgba(16, 185, 129, 0.32);
+  background: #f0fdf4;
+}
+
+.nl-status-card--hold,
+.nl-status-card--clarify {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: #fffbeb;
+}
+
+.nl-status-card--blocked,
+.nl-status-card--error {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: #fef2f2;
+}
+
+.nl-status-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nl-status-card__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+}
+
+.nl-status-card__badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--card-foreground);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  white-space: nowrap;
+}
+
+.nl-status-card__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--card-foreground);
+}
+
+.nl-status-card__body,
+.nl-status-card__note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--card-foreground);
+}
+
+.nl-status-card__note {
+  color: var(--muted-foreground);
+}
+
+.nl-status-card__questions {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--card-foreground);
+}
+
+.nl-status-card__tech {
+  margin-top: 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding-top: 6px;
+}
+
+.nl-status-card__tech > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.nl-status-card__tech > summary::-webkit-details-marker {
+  display: none;
+}
+
+.nl-status-card__tech-body {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nl-status-card__tech-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+
 /* Mode cards — compact (8px padding, label + amount only) */
 .console-mode-grid {
   display: grid;
