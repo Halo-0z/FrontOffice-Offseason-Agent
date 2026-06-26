@@ -1738,3 +1738,237 @@ def test_m9a_intelligence_summary_exposes_no_execute_functions() -> None:
         assert not hasattr(ai, forbidden), (
             f"M9-A violation: agent_intelligence must not expose {forbidden!r}"
         )
+
+
+# --------------------------------------------------------------------------- #
+# M9-B guardrails: Natural-Language Intent Classifier
+#
+# The deterministic rule-based classifier must:
+# - never import LLM / network / scraping libraries
+# - never import or call the orchestrator or deterministic engines
+#   (it is an UPSTREAM step; coupling must not flow back)
+# - never import the M9-A intelligence summary module
+# - work even when engine modules are monkeypatched away (proves no
+#   import-time dependency on them)
+# - never mutate data files or fixture snapshots when called
+# - not cause the API to expose new execute/apply/commit/mutate/write
+#   endpoints
+# - expose no public functions that sound like execution / mutation
+# --------------------------------------------------------------------------- #
+
+
+_M9B_FORBIDDEN_MODULE_IMPORTS = [
+    "openai",
+    "anthropic",
+    "mcp",
+    "requests",
+    "httpx",
+    "aiohttp",
+    "urllib",
+    "socket",
+    "selenium",
+    "playwright",
+    "bs4",
+    "beautifulsoup",
+    "scrapy",
+    "websocket",
+]
+
+_M9B_FORBIDDEN_UPSTREAM_DEPENDENCIES = [
+    "backend.app.services.agent_orchestrator",
+    "backend.app.services.transaction_rule_engine",
+    "backend.app.services.trade_simulator",
+    "backend.app.services.snapshot_loader",
+    "backend.app.services.proposal_builder",
+    "backend.app.services.proposal_viewer",
+    "backend.app.services.agent_intelligence",
+    "backend.app.services.agent_trace_builder",
+]
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "backend.app.services.agent_intent_classifier",
+        "backend.app.models.agent_intent_classifier",
+    ],
+)
+def test_m9b_classifier_modules_no_llm_or_network_imports(module_name: str) -> None:
+    src = _read_module_source(module_name)
+    for name in _M9B_FORBIDDEN_MODULE_IMPORTS:
+        assert f"import {name}" not in src and f"from {name}" not in src, (
+            f"M9-B violation: {module_name} must not import {name!r}"
+        )
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "backend.app.services.agent_intent_classifier",
+        "backend.app.models.agent_intent_classifier",
+    ],
+)
+def test_m9b_classifier_modules_no_upstream_engine_imports(module_name: str) -> None:
+    """The classifier sits upstream of the orchestrator and must never
+    import it or the deterministic engines; coupling must flow one way."""
+    src = _read_module_source(module_name)
+    for name in _M9B_FORBIDDEN_UPSTREAM_DEPENDENCIES:
+        assert f"import {name}" not in src and f"from {name}" not in src, (
+            f"M9-B violation: {module_name} must not import {name!r} "
+            f"(classifier must stay upstream/orchestrator-agnostic)"
+        )
+
+
+def test_m9b_classifier_works_without_engine_imports(monkeypatch) -> None:
+    """Monkeypatch every forbidden module to raise ImportError on access;
+    the classifier must still return results (proving no runtime deps)."""
+    import sys
+    import types
+
+    sentinel = types.ModuleType("__m9b_blocked__")
+    for mod in _M9B_FORBIDDEN_UPSTREAM_DEPENDENCIES + _M9B_FORBIDDEN_MODULE_IMPORTS:
+        monkeypatch.setitem(sys.modules, mod, sentinel)
+
+    from backend.app.models.agent_intent_classifier import AgentIntentClassificationRequest
+    from backend.app.services.agent_intent_classifier import classify_user_intent
+
+    req = AgentIntentClassificationRequest(user_text="我想补一个中锋")
+    plan = classify_user_intent(req)
+    assert plan.classification_status == "resolved"
+    assert plan.resolved_intent == "signing_preview"
+
+
+def test_m9b_classifier_plan_is_frozen_dataclass() -> None:
+    from backend.app.models.agent_intent_classifier import AgentIntentPlan
+
+    p = AgentIntentPlan(
+        classification_status="resolved",
+        resolved_intent="hold",
+        confidence=0.9,
+        needs_clarification=False,
+        objective="x",
+        constraints={},
+    )
+    with pytest.raises(Exception):
+        p.classification_status = "blocked"  # type: ignore[misc]
+
+
+def test_m9b_classifier_does_not_modify_data_files() -> None:
+    import hashlib
+    from backend.app.models.agent_intent_classifier import AgentIntentClassificationRequest
+    from backend.app.services.agent_intent_classifier import classify_user_intent
+
+    def _hash_paths(paths):
+        out = {}
+        for p in paths:
+            if p.exists() and p.is_file():
+                out[str(p)] = hashlib.sha256(p.read_bytes()).hexdigest()
+            elif p.exists() and p.is_dir():
+                for f in p.rglob("*"):
+                    if f.is_file():
+                        out[str(f)] = hashlib.sha256(f.read_bytes()).hexdigest()
+        return out
+
+    targets = [
+        DATA_DIR,
+        Path(REPO_ROOT) / "backend" / "app" / "tests" / "fixtures" / "snapshots",
+    ]
+    before = _hash_paths(targets)
+
+    for text in (
+        "我想补一个中锋",
+        "看看低风险交易",
+        "先观望",
+        "马上执行一笔交易",
+        "帮我看看",
+        "sign a center and trade for a wing",
+    ):
+        classify_user_intent(AgentIntentClassificationRequest(user_text=text))
+
+    after = _hash_paths(targets)
+    assert before == after, "classifier must not mutate data files or fixture snapshots"
+
+
+def test_m9b_classifier_service_exposes_no_execute_functions() -> None:
+    import backend.app.services.agent_intent_classifier as ic
+
+    for forbidden in (
+        "execute",
+        "apply",
+        "commit",
+        "mutate",
+        "write",
+        "sign_player",
+        "trade_player",
+        "save_snapshot",
+        "delete",
+        "update",
+        "submit",
+        "build_preview",
+        "run_orchestrator",
+    ):
+        assert not hasattr(ic, forbidden), (
+            f"M9-B violation: agent_intent_classifier must not expose {forbidden!r}"
+        )
+
+
+def test_m9b_api_does_not_expose_execution_endpoints(client) -> None:
+    """In addition to the orchestrator-guardrail assertion, M9-B must
+    not cause any execute/apply/commit/mutate/write endpoints to appear."""
+    for path in (
+        "/api/agent/execute",
+        "/api/agent/apply",
+        "/api/agent/commit",
+        "/api/agent/mutate",
+        "/api/agent/write",
+        "/api/agent/save",
+        "/api/agent/delete",
+        "/api/agent/update",
+        "/api/agent/submit",
+    ):
+        resp = client.post(path, json={})
+        assert resp.status_code in (404, 405), (
+            f"M9-B violation: endpoint {path} must not exist (got {resp.status_code})"
+        )
+
+
+def test_m9b_classifier_response_state_invariants_across_inputs() -> None:
+    """Cross-cutting invariant: resolved/needs_clarification/blocked
+    states must never leak into each other."""
+    from backend.app.models.agent_intent_classifier import AgentIntentClassificationRequest
+    from backend.app.services.agent_intent_classifier import classify_user_intent
+
+    cases = {
+        "resolved_signing": "我想补一个中锋",
+        "resolved_trade": "模拟一笔交易",
+        "resolved_hold": "先观望",
+        "needs_clarification_mixed": "签一个中锋并交易换锋线",
+        "needs_clarification_vague": "帮我看看",
+        "needs_clarification_empty": "",
+        "blocked": "马上执行一笔交易",
+    }
+    for name, text in cases.items():
+        p = classify_user_intent(AgentIntentClassificationRequest(user_text=text))
+        if name.startswith("resolved"):
+            assert p.classification_status == "resolved"
+            assert p.resolved_intent in ("signing_preview", "trade_preview_demo", "hold")
+            assert p.needs_clarification is False
+            assert p.blocked_reason is None
+            assert p.confidence >= 0.7
+        elif name.startswith("needs_clarification"):
+            assert p.classification_status == "needs_clarification"
+            assert p.resolved_intent is None
+            assert p.needs_clarification is True
+            assert p.blocked_reason is None
+            assert p.clarification_questions
+            assert p.confidence < 0.7
+        elif name.startswith("blocked"):
+            assert p.classification_status == "blocked"
+            assert p.resolved_intent is None
+            assert p.needs_clarification is False
+            assert p.blocked_reason is not None
+            assert p.confidence == 0.0
+        # source is always fixed
+        assert p.source == "deterministic-rule-classifier"
+        # approval_note always mentions read-only and human
+        assert "只读" in p.approval_note and "人工" in p.approval_note

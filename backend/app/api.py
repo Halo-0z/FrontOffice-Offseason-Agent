@@ -37,12 +37,13 @@ Run tests:
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # --------------------------------------------------------------------------- #
@@ -134,6 +135,81 @@ class AgentOrchestratePreviewRequest(BaseModel):
         default_factory=dict,
         description="Optional caller metadata. Forbidden keys cause HTTP 400.",
     )
+
+
+# Regex for control characters (anything in Cc/Co/Cf category except the
+# common whitespace characters \t \n \r) and zero-width characters
+# (U+200B..U+200D, U+2060, U+FEFF).
+_USER_TEXT_CONTROL_CHARS_RE = re.compile(
+    r"[\u200b\u200c\u200d\u2060\ufeff"
+    r"\x00-\x08\x0b\x0c\x0e-\x1f\x7f]"
+)
+_USER_TEXT_MAX_LEN = 500
+
+
+class AgentClassifyIntentRequest(BaseModel):
+    """Request body for ``POST /api/agent/classify-intent`` (M9-B).
+
+    Deterministic rule-based natural-language intent classification.
+    The classifier sits upstream of the preview-only orchestrator and
+    never generates previews or executes anything; it only returns an
+    intent plan.
+
+    Validation rules enforced at the API layer:
+
+    - ``user_text`` required, non-empty, max 500 characters.
+    - ``user_text`` must not contain ASCII control characters (other
+      than \\t / \\n / \\r) or zero-width characters (U+200B family,
+      U+FEFF, etc.) — rejected with HTTP 422.
+    - ``metadata`` and ``constraints`` are recursively scanned for
+      forbidden mutation-semantic keys AND values (execute, apply,
+      commit, mutate, write, persist, save, delete, update, submit,
+      transaction_executed, auto_execute, auto_approve, …) — rejected
+      with HTTP 400.
+    """
+
+    user_text: str = Field(
+        ...,
+        min_length=1,
+        max_length=_USER_TEXT_MAX_LEN,
+        description="Free-form natural-language utterance from the user.",
+    )
+    team_id: Optional[str] = Field(
+        default=None, description="Optional team id; not used for classification."
+    )
+    locale: Optional[str] = Field(
+        default=None, description="Locale hint, e.g. 'zh-CN' or 'en-US'."
+    )
+    constraints: List[Any] = Field(
+        default_factory=list,
+        description="Caller-provided constraints. Forbidden keys/values cause 400.",
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional caller metadata. Forbidden keys/values cause 400.",
+    )
+
+    @field_validator("user_text")
+    @classmethod
+    def _validate_user_text(cls, v: str) -> str:
+        if not isinstance(v, str):
+            raise ValueError("user_text must be a string")
+        if len(v) > _USER_TEXT_MAX_LEN:
+            raise ValueError(
+                f"user_text exceeds max length of {_USER_TEXT_MAX_LEN} characters"
+            )
+        if _USER_TEXT_CONTROL_CHARS_RE.search(v):
+            raise ValueError(
+                "user_text contains control characters or zero-width characters"
+            )
+        # Double-check by Unicode category — catches anything the regex missed.
+        for ch in v:
+            cat = unicodedata.category(ch)
+            if cat in ("Cc", "Cf", "Co", "Cn") and ch not in ("\t", "\n", "\r"):
+                raise ValueError(
+                    "user_text contains disallowed Unicode control/format characters"
+                )
+        return v
 
 
 # --------------------------------------------------------------------------- #
@@ -492,6 +568,86 @@ def _find_forbidden_metadata_key(obj: Any, _path: str = "") -> Optional[str]:
     return None
 
 
+# Forbidden value tokens (checked inside any string value nested under
+# metadata or constraints). These mirror the forbidden roots but include
+# compound forms that indicate mutation intent in a value slot.
+#
+# - ``_SINGLE_WORD_FORBIDDEN``: tokens matched after tokenisation (single
+#   words split on non-alphanumerics + camelCase / snake_case).
+# - ``_PHRASE_FORBIDDEN``: multi-word / joined phrases matched as
+#   case-insensitive substrings across the whole string value.
+_SINGLE_WORD_FORBIDDEN = frozenset({
+    "execute", "executed",
+    "apply", "applied",
+    "commit", "committed",
+    "mutate", "mutated",
+    "write", "persist",
+    "save", "delete",
+    "update", "submit",
+})
+
+_PHRASE_FORBIDDEN = frozenset({
+    "transaction_executed", "transactionexecuted",
+    "auto_execute", "autoexecute", "auto execute",
+    "auto_approve", "autoapprove", "auto approve",
+    "skip_approval", "skipapproval", "skip approval",
+    "bypass_validation", "bypassvalidation", "bypass validation",
+    "bypass_approval", "bypassapproval", "bypass approval",
+    "force_through", "forcethrough", "force through",
+    "execute_trade", "executetrade", "execute trade",
+    "commit_transaction", "committransaction", "commit transaction",
+    "commit_trade", "committrade", "commit trade",
+    "apply_trade", "applytrade", "apply trade",
+    "modify_contract", "modifycontract", "modify contract",
+    "write_roster", "writeroster", "write roster",
+    "update_snapshot", "updatesnapshot", "update snapshot",
+    "update_roster", "updateroster", "update roster",
+    "without_approval", "withoutapproval", "without approval",
+})
+
+
+def _find_forbidden_value(obj: Any, _path: str = "") -> Optional[str]:
+    """Recursively scan string values for forbidden mutation tokens.
+
+    Used on ``metadata`` and ``constraints`` for the classify-intent
+    endpoint. Two checks are performed per string:
+
+    1. Case-insensitive substring match against multi-word phrases in
+       ``_PHRASE_FORBIDDEN`` (e.g. ``"skip approval"``, ``"auto_execute"``).
+    2. Tokenisation on non-alphanumeric boundaries (plus camelCase /
+       snake_case splitting) and token-level membership in
+       ``_SINGLE_WORD_FORBIDDEN``.
+
+    Returns the dotted path of the first offending value, or ``None``.
+    """
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            path_here = f"{_path}.{k}" if _path else str(k)
+            found = _find_forbidden_value(v, path_here)
+            if found is not None:
+                return found
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            found = _find_forbidden_value(v, f"{_path}[{i}]")
+            if found is not None:
+                return found
+    elif isinstance(obj, str):
+        lowered = obj.lower()
+        # 1. Phrase-level substring match
+        for phrase in _PHRASE_FORBIDDEN:
+            if phrase in lowered:
+                return _path or "(root)"
+        # 2. Single-word token match (split on non-alnum, then split on
+        # camelCase / snake_case per word).
+        for raw_word in re.split(r"[^a-z0-9]+", lowered):
+            if not raw_word:
+                continue
+            for tok in _split_key_tokens(raw_word):
+                if tok in _SINGLE_WORD_FORBIDDEN:
+                    return _path or "(root)"
+    return None
+
+
 # --------------------------------------------------------------------------- #
 # Agent orchestrator endpoint (M8-E5-B)
 # --------------------------------------------------------------------------- #
@@ -547,3 +703,105 @@ def agent_orchestrate_preview(req: AgentOrchestratePreviewRequest) -> Dict[str, 
 
     result = orchestrate_preview(orch_req, _DATA_DIR)
     return result.to_dict()
+
+
+# --------------------------------------------------------------------------- #
+# Intent classifier endpoint (M9-B)
+# --------------------------------------------------------------------------- #
+
+
+@app.post("/api/agent/classify-intent")
+def agent_classify_intent(req: AgentClassifyIntentRequest) -> Dict[str, Any]:
+    """Deterministic natural-language intent classifier (M9-B).
+
+    Thin HTTP adapter that:
+
+    1. Validates ``user_text`` (length, no control chars / zero-width chars)
+       — Pydantic enforces this, returning 422 on violation.
+    2. Recursively scans BOTH ``req.metadata`` and ``req.constraints`` for
+       forbidden mutation-semantic keys AND values (returns 400 if any
+       found).
+    3. Builds an ``AgentIntentClassificationRequest`` from the HTTP body.
+    4. Delegates entirely to
+       ``backend.app.services.agent_intent_classifier.classify_user_intent()``.
+    5. Returns ``AgentIntentPlan.to_dict()`` directly.
+
+    Hard guardrails (enforced by the service layer and by tests):
+
+    - The classifier is pure, rule-based, and read-only. It does not
+      call the orchestrator or any deterministic engine, and does not
+      generate preview payloads.
+    - The response never echoes the raw ``user_text``, never names
+      specific players / teams / dollar amounts.
+    - ``classification_status`` strictly separates ``resolved`` /
+      ``needs_clarification`` / ``blocked``; ambiguous input returns
+      ``needs_clarification`` with ``resolved_intent=null`` (never
+      ``hold``).
+    - No execute/apply/commit/mutate/write/persist/save/delete/update
+      endpoint is added anywhere.
+    - No data file is mutated.
+    """
+    # 1. Forbidden keys (same logic as the orchestrator endpoint, applied
+    #    to BOTH metadata and constraints).
+    key_path = _find_forbidden_metadata_key(req.metadata)
+    if key_path is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"metadata contains forbidden mutation-semantic key at "
+                f"'{key_path}'. This endpoint is read-only and does not "
+                f"support execute/apply/commit/mutate/write/persist/save/"
+                f"delete/update/submit."
+            ),
+        )
+    key_path = _find_forbidden_metadata_key(req.constraints)
+    if key_path is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"constraints contains forbidden mutation-semantic key at "
+                f"'{key_path}'. This endpoint is read-only and does not "
+                f"support execute/apply/commit/mutate/write/persist/save/"
+                f"delete/update/submit."
+            ),
+        )
+
+    # 2. Forbidden values (string tokens) in metadata AND constraints.
+    val_path = _find_forbidden_value(req.metadata)
+    if val_path is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"metadata contains forbidden mutation-semantic value at "
+                f"'{val_path}'. This endpoint is read-only and does not "
+                f"support execute/apply/commit/mutate/write/persist/save/"
+                f"delete/update/submit."
+            ),
+        )
+    val_path = _find_forbidden_value(req.constraints)
+    if val_path is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"constraints contains forbidden mutation-semantic value at "
+                f"'{val_path}'. This endpoint is read-only and does not "
+                f"support execute/apply/commit/mutate/write/persist/save/"
+                f"delete/update/submit."
+            ),
+        )
+
+    from backend.app.models.agent_intent_classifier import (
+        AgentIntentClassificationRequest,
+    )
+    from backend.app.services.agent_intent_classifier import classify_user_intent
+
+    cls_req = AgentIntentClassificationRequest(
+        user_text=req.user_text,
+        team_id=req.team_id,
+        locale=req.locale,
+        constraints=list(req.constraints),
+        metadata=dict(req.metadata),
+    )
+
+    plan = classify_user_intent(cls_req)
+    return plan.to_dict()
