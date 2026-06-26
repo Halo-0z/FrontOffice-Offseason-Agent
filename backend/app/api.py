@@ -39,7 +39,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -180,9 +180,9 @@ class AgentClassifyIntentRequest(BaseModel):
     locale: Optional[str] = Field(
         default=None, description="Locale hint, e.g. 'zh-CN' or 'en-US'."
     )
-    constraints: List[Any] = Field(
+    constraints: Union[Dict[str, Any], List[Any]] = Field(
         default_factory=list,
-        description="Caller-provided constraints. Forbidden keys/values cause 400.",
+        description="Caller-provided constraints. Accepts object or list. Forbidden keys/values cause 400.",
     )
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
@@ -795,11 +795,16 @@ def agent_classify_intent(req: AgentClassifyIntentRequest) -> Dict[str, Any]:
     )
     from backend.app.services.agent_intent_classifier import classify_user_intent
 
+    if isinstance(req.constraints, dict):
+        constraints_safe: Union[Dict[str, Any], List[Any]] = dict(req.constraints)
+    else:
+        constraints_safe = list(req.constraints)
+
     cls_req = AgentIntentClassificationRequest(
         user_text=req.user_text,
         team_id=req.team_id,
         locale=req.locale,
-        constraints=list(req.constraints),
+        constraints=constraints_safe,
         metadata=dict(req.metadata),
     )
 

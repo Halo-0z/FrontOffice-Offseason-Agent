@@ -33,7 +33,7 @@ Hard guardrails (enforced by tests in ``test_agent_intent_classifier.py``,
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 
 CLASSIFICATION_STATUS_RESOLVED = "resolved"
@@ -69,7 +69,7 @@ class AgentIntentClassificationRequest:
     user_text: str
     team_id: Optional[str] = None
     locale: Optional[str] = None
-    constraints: List[Any] = field(default_factory=list)
+    constraints: Union[Dict[str, Any], List[Any]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 

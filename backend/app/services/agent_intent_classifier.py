@@ -30,7 +30,7 @@ The classifier supports both Chinese and English keywords.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from backend.app.models.agent_intent_classifier import (
     CLASSIFICATION_STATUS_BLOCKED,
@@ -379,22 +379,29 @@ def _build_objective(kind: str) -> str:
     return "保持观望。"
 
 
-def _constraints_to_safe_dict(constraints: List[Any]) -> Dict[str, Any]:
-    """Convert the incoming constraints list to a small sanitized dict
-    for the response.
+def _constraints_to_safe_dict(constraints: Union[Dict[str, Any], List[Any]]) -> Dict[str, Any]:
+    """Convert the incoming constraints to a small sanitized dict for the
+    response.
 
-    The classifier never forwards raw constraint strings verbatim (to
-    avoid leaking specific names/amounts the caller may have passed);
-    instead it records only:
+    Accepts either a list of strings (legacy) or a dict (preferred
+    shape, used by the smoke payloads). The classifier never forwards
+    raw constraint values verbatim (to avoid leaking specific names or
+    amounts the caller may have passed); instead it records only:
+
       - ``user_provided``: how many constraint items the caller sent
-      - ``preserve_cap_flexibility`` heuristic: True if any item looks
-        like a cap-flexibility request
-      - ``low_risk_only`` heuristic: True if any item looks like a
-        low-risk preference
+      - ``preserve_cap_flexibility``: True if any item/key looks like a
+        cap-flexibility request
+      - ``low_risk_only``: True if any item/key looks like a low-risk
+        preference
     """
     preserve_cap = False
     low_risk = False
-    for c in constraints or []:
+    items: List[Any] = []
+    if isinstance(constraints, dict):
+        items = list(constraints.keys()) + [v for v in constraints.values() if isinstance(v, str)]
+    elif isinstance(constraints, list):
+        items = list(constraints)
+    for c in items:
         if not isinstance(c, str):
             continue
         cl = c.lower()
@@ -403,11 +410,20 @@ def _constraints_to_safe_dict(constraints: List[Any]) -> Dict[str, Any]:
         )):
             preserve_cap = True
         if any(t in cl for t in (
-            "low risk", "low-risk", "低风险", "保守", "稳妥", "稳健",
+            "low risk", "low-risk", "低风险", "保守", "稳妥", "稳健", "risk_tolerance",
         )):
             low_risk = True
+    # If constraints is a dict and caller already explicitly sets
+    # preserve_cap_flexibility or risk_tolerance=low, honour it.
+    if isinstance(constraints, dict):
+        if constraints.get("preserve_cap_flexibility"):
+            preserve_cap = True
+        rt = constraints.get("risk_tolerance")
+        if isinstance(rt, str) and rt.lower() in ("low", "conservative"):
+            low_risk = True
+    total = len(constraints) if isinstance(constraints, (dict, list)) else 0
     out: Dict[str, Any] = {
-        "user_provided_count": len(constraints or []),
+        "user_provided_count": total,
         "preserve_cap_flexibility": preserve_cap,
         "low_risk_only": low_risk,
     }
