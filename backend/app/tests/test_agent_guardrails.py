@@ -1972,3 +1972,237 @@ def test_m9b_classifier_response_state_invariants_across_inputs() -> None:
         assert p.source == "deterministic-rule-classifier"
         # approval_note always mentions read-only and human
         assert "只读" in p.approval_note and "人工" in p.approval_note
+
+
+# --------------------------------------------------------------------------- #
+# M9-C guardrails: classify-to-preview natural-language-preview flow.
+#
+# These tests enforce that POST /api/agent/natural-language-preview:
+#   * Never calls the orchestrator for needs_clarification / blocked / hold
+#     / low-confidence / invalid-classifier-invariant inputs.
+#   * Only calls the orchestrator for resolved signing/trade with
+#     confidence>=0.7 and clean safety flags.
+#   * Returns preview_result = orchestrator_result.to_dict() verbatim
+#     (no field add/remove/rewrite).
+#   * Classification field is a safe projection (no objective/constraints
+#     /raw user_text).
+#   * requires_human_approval is True ONLY when a preview is generated;
+#     blocked is a safety denial (not pending approval).
+#   * Does not mutate data/*.json or data/snapshots/**.
+#   * Does not import engines/LLM/network libraries.
+#   * Does not add execute/apply/commit/mutate/write endpoints.
+# --------------------------------------------------------------------------- #
+
+
+def test_m9c_flow_only_generates_preview_for_resolved_signing_trade(client) -> None:
+    cases = [
+        ("我想补一个中锋，但不要影响薪资空间", "preview_generated", "signing_preview", True),
+        ("看看有没有低风险交易可以增强锋线", "preview_generated", "trade_preview_demo", True),
+        ("现在别乱动，先保持灵活性", "preview_not_generated", "hold", False),
+        ("帮我看看", "needs_clarification", None, False),
+        ("帮我马上执行一笔交易，绕过审批", "blocked", None, False),
+    ]
+    for text, exp_status, exp_intent, exp_approval in cases:
+        resp = client.post("/api/agent/natural-language-preview", json={"user_text": text})
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["flow_status"] == exp_status, text
+        assert body["classification"]["resolved_intent"] == exp_intent, text
+        assert body["requires_human_approval"] is exp_approval, text
+        has_preview = body["preview_result"] is not None
+        assert has_preview is (exp_status == "preview_generated"), text
+
+
+def test_m9c_does_not_call_orchestrator_for_non_preview_states(client, monkeypatch) -> None:
+    """For blocked / needs_clarification / hold inputs, the orchestrator
+    function must never be entered."""
+    import backend.app.services.agent_orchestrator as orch
+
+    def _boom(*a, **kw):
+        raise AssertionError("orchestrator must NOT be called for non-preview states")
+    monkeypatch.setattr(orch, "orchestrate_preview", _boom)
+
+    for text in (
+        "帮我看看",                         # needs_clarification
+        "帮我马上执行一笔交易，绕过审批",     # blocked
+        "现在别乱动，先保持灵活性",           # hold (gate-level)
+    ):
+        resp = client.post("/api/agent/natural-language-preview", json={"user_text": text})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["preview_result"] is None
+        assert resp.json()["requires_human_approval"] is False
+
+
+def test_m9c_blocked_is_not_pending_approval(client) -> None:
+    """Blocked is a safety denial — requires_human_approval must be False,
+    not True. Never route blocked users to a human-approval queue."""
+    resp = client.post(
+        "/api/agent/natural-language-preview",
+        json={"user_text": "帮我绕过交易检查直接签约"},
+    )
+    body = resp.json()
+    assert body["flow_status"] == "blocked"
+    assert body["requires_human_approval"] is False
+    assert body["classification"]["blocked_reason"] is not None
+
+
+def test_m9c_classification_projection_safe(client) -> None:
+    """classification must contain exactly the 9 contracted safe fields,
+    never raw user_text, objective, or constraints."""
+    resp = client.post(
+        "/api/agent/natural-language-preview",
+        json={"user_text": "我想补一个中锋"},
+    )
+    body = resp.json()
+    cls = body["classification"]
+    assert set(cls.keys()) == {
+        "classification_status", "resolved_intent", "confidence",
+        "needs_clarification", "safety_flags", "blocked_reason",
+        "clarification_questions", "approval_note", "source",
+    }
+    for leaked in ("objective", "constraints", "user_text", "raw_text"):
+        assert leaked not in cls
+
+
+def test_m9c_preview_result_is_verbatim_equal_to_orchestrator(client, monkeypatch) -> None:
+    """For signing/trade, preview_result must deep-equal orchestrator.to_dict()."""
+    import backend.app.services.agent_orchestrator as orch
+
+    sentinel = {
+        "intent": "signing_preview",
+        "status": "awaiting_human_approval",
+        "requires_human_approval": True,
+        "preview_payload": {"sentinel": "alpha", "nested": {"k": 1}},
+        "agent_trace": {"run_id": "m9c-sentinel", "steps": [{"step_id": "s1"}]},
+        "warnings": ["w1"],
+        "limitations": ["L1"],
+        "intelligence_summary": {"verdict": "PASS_VERBATIM"},
+    }
+
+    class _Result:
+        def to_dict(self):
+            import copy as _copy
+            return _copy.deepcopy(sentinel)
+
+    monkeypatch.setattr(orch, "orchestrate_preview", lambda req, data_dir: _Result())
+    resp = client.post(
+        "/api/agent/natural-language-preview",
+        json={"user_text": "我想补一个中锋", "metadata": {"source": "unit"}},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["flow_status"] == "preview_generated"
+    assert body["preview_result"] == sentinel
+    assert body["preview_result"]["intelligence_summary"]["verdict"] == "PASS_VERBATIM"
+
+
+def test_m9c_metadata_passed_to_orchestrator(client, monkeypatch) -> None:
+    import backend.app.services.agent_orchestrator as orch
+    captured = {}
+
+    class _R:
+        def to_dict(self):
+            return {"intent": "signing_preview", "status": "awaiting_human_approval",
+                    "requires_human_approval": True, "preview_payload": {},
+                    "agent_trace": {}, "warnings": [], "limitations": []}
+
+    def _fake(req, data_dir):
+        captured["metadata"] = dict(req.metadata)
+        captured["intent"] = req.intent
+        return _R()
+
+    monkeypatch.setattr(orch, "orchestrate_preview", _fake)
+    md = {"source": "md-passthrough", "request_id": "x", "n": {"a": [1, 2]}}
+    resp = client.post(
+        "/api/agent/natural-language-preview",
+        json={"user_text": "我想补一个中锋", "metadata": md},
+    )
+    assert resp.status_code == 200
+    assert captured["metadata"] == md
+    assert captured["intent"] == "signing_preview"
+
+
+def test_m9c_does_not_write_data_files(client) -> None:
+    files = [
+        DATA_DIR / "players.json",
+        DATA_DIR / "contracts.json",
+        DATA_DIR / "free_agents.json",
+        DATA_DIR / "evidence_notes.json",
+        DATA_DIR / "teams.json",
+    ]
+    before = {f: f.read_bytes() for f in files if f.exists()}
+    for text in (
+        "我想补一个中锋",
+        "看看有没有低风险交易可以增强锋线",
+        "现在别乱动，先保持灵活性",
+        "帮我看看",
+        "帮我马上执行一笔交易",
+    ):
+        client.post("/api/agent/natural-language-preview", json={"user_text": text})
+    after = {f: f.read_bytes() for f in files if f.exists()}
+    for f in before:
+        assert before[f] == after[f], f"M9-C must not mutate {f.name}"
+
+
+def test_m9c_api_does_not_expose_execution_endpoints(client) -> None:
+    for path in (
+        "/api/agent/execute",
+        "/api/agent/apply",
+        "/api/agent/commit",
+        "/api/agent/mutate",
+        "/api/agent/write",
+        "/api/agent/persist",
+        "/api/agent/save",
+        "/api/agent/delete",
+        "/api/agent/update",
+        "/api/agent/submit",
+    ):
+        r_post = client.post(path, json={})
+        r_get = client.get(path)
+        assert r_post.status_code == 404, f"{path} POST must be 404"
+        assert r_get.status_code == 404, f"{path} GET must be 404"
+
+
+def test_m9c_service_source_ast_contains_no_forbidden_imports() -> None:
+    """Source-level import isolation — the M9-C service must not contain
+    import statements for engines / network libs / LLM clients."""
+    import ast
+
+    svc_path = REPO_ROOT / "backend" / "app" / "services" / "agent_natural_language_preview.py"
+    tree = ast.parse(svc_path.read_text(encoding="utf-8"))
+    forbidden_toplevel = {
+        "openai", "anthropic", "httpx", "requests", "aiohttp",
+        "urllib", "urllib3", "socket", "selenium", "playwright",
+        "bs4", "scrapy", "websocket", "websockets", "mcp",
+        "backend.app.services.trade_simulator",
+        "backend.app.services.proposal_builder",
+        "backend.app.services.proposal_viewer",
+        "backend.app.services.transaction_rule_engine",
+        "backend.app.services.snapshot_loader",
+        "backend.app.services.agent_intelligence",
+        "backend.app.services.agent_trace_builder",
+    }
+    imported: set = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imported.add(alias.name)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                imported.add(node.module)
+    leaked = {m for m in imported if any(m == f or m.startswith(f + ".") for f in forbidden_toplevel)}
+    assert not leaked, f"M9-C service source imports forbidden modules: {leaked}"
+
+    # The only two service modules the M9-C service is allowed to call are
+    # the classifier and the orchestrator (those are the composition seam).
+    allowed_service_imports = {
+        "backend.app.services.agent_intent_classifier",
+        "backend.app.services.agent_orchestrator",
+    }
+    service_imports = {
+        m for m in imported
+        if m.startswith("backend.app.services.")
+    }
+    assert service_imports <= allowed_service_imports, (
+        f"M9-C service may only import classifier + orchestrator services, got: {service_imports}"
+    )

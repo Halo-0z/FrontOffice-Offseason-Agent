@@ -810,3 +810,122 @@ def agent_classify_intent(req: AgentClassifyIntentRequest) -> Dict[str, Any]:
 
     plan = classify_user_intent(cls_req)
     return plan.to_dict()
+
+
+# --------------------------------------------------------------------------- #
+# Natural-language classify-to-preview flow endpoint (M9-C)
+# --------------------------------------------------------------------------- #
+
+
+# M9-C uses the same request body shape / validation as M9-B classify-intent.
+# We alias the Pydantic model so we don't duplicate validators.
+AgentNaturalLanguagePreviewRequest = AgentClassifyIntentRequest
+
+
+@app.post("/api/agent/natural-language-preview")
+def agent_natural_language_preview(
+    req: AgentNaturalLanguagePreviewRequest,
+) -> Dict[str, Any]:
+    """Deterministic classify-to-preview backend flow (M9-C).
+
+    Thin HTTP adapter that:
+
+    1. Validates ``user_text`` and recursively scans ``metadata`` +
+       ``constraints`` for forbidden mutation keys/values — identical
+       rules to ``/api/agent/classify-intent`` (HTTP 400 / 422 on
+       violation).
+    2. Delegates entirely to
+       ``backend.app.services.agent_natural_language_preview.run_natural_language_preview()``
+       which first runs M9-B ``classify_user_intent`` and then applies a
+       strict gate: only resolved signing/trade with high confidence
+       and clean safety flags calls the preview orchestrator; all
+       other states (needs_clarification / blocked / resolved-hold /
+       low-confidence / invalid invariants) return without calling the
+       orchestrator.
+    3. Returns ``AgentNaturalLanguagePreviewResult.to_dict()`` directly.
+       When a preview is generated, ``preview_result`` is the
+       orchestrator's ``to_dict()`` verbatim — no reshape, no verdict
+       rewrite, no add/remove fields, no mutation of
+       ``intelligence_summary`` / ``agent_trace`` / ``preview_payload``.
+
+    Hard guardrails:
+
+    - Never exposes execute/apply/commit/mutate/write semantics.
+    - ``preview_result`` is only present for ``flow_status ==
+      "preview_generated"``; all other states have ``preview_result=null``.
+    - ``requires_human_approval`` is ``true`` only when a preview was
+      generated; never for blocked / needs_clarification / hold-gate /
+      invalid states (blocked is a safety denial, not a pending
+      approval).
+    - ``classification`` in the response is a safe projection
+      (excludes ``objective``/``constraints``/raw user text).
+    - No data file is mutated.
+    """
+    # 1. Reuse M9-B scanner verbatim (keys + values, metadata + constraints).
+    key_path = _find_forbidden_metadata_key(req.metadata)
+    if key_path is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"metadata contains forbidden mutation-semantic key at "
+                f"'{key_path}'. This endpoint is read-only and does not "
+                f"support execute/apply/commit/mutate/write/persist/save/"
+                f"delete/update/submit."
+            ),
+        )
+    key_path = _find_forbidden_metadata_key(req.constraints)
+    if key_path is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"constraints contains forbidden mutation-semantic key at "
+                f"'{key_path}'. This endpoint is read-only and does not "
+                f"support execute/apply/commit/mutate/write/persist/save/"
+                f"delete/update/submit."
+            ),
+        )
+    val_path = _find_forbidden_value(req.metadata)
+    if val_path is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"metadata contains forbidden mutation-semantic value at "
+                f"'{val_path}'. This endpoint is read-only and does not "
+                f"support execute/apply/commit/mutate/write/persist/save/"
+                f"delete/update/submit."
+            ),
+        )
+    val_path = _find_forbidden_value(req.constraints)
+    if val_path is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"constraints contains forbidden mutation-semantic value at "
+                f"'{val_path}'. This endpoint is read-only and does not "
+                f"support execute/apply/commit/mutate/write/persist/save/"
+                f"delete/update/submit."
+            ),
+        )
+
+    from backend.app.models.agent_natural_language_preview import (
+        AgentNaturalLanguagePreviewRequest as SvcReq,
+    )
+    from backend.app.services.agent_natural_language_preview import (
+        run_natural_language_preview,
+    )
+
+    if isinstance(req.constraints, dict):
+        constraints_safe: Union[Dict[str, Any], List[Any]] = dict(req.constraints)
+    else:
+        constraints_safe = list(req.constraints)
+
+    svc_req = SvcReq(
+        user_text=req.user_text,
+        team_id=req.team_id,
+        locale=req.locale,
+        constraints=constraints_safe,
+        metadata=dict(req.metadata),
+    )
+
+    result = run_natural_language_preview(svc_req, _DATA_DIR)
+    return result.to_dict()
