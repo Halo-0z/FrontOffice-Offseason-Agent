@@ -53,6 +53,7 @@ from backend.app.models.agent_orchestrator import (
     OrchestratorTrace,
     OrchestratorTraceStep,
 )
+from backend.app.services.agent_intelligence import build_intelligence_summary
 from backend.app.services.data_source_resolver import build_data_source_metadata
 from backend.app.services.proposal_viewer import build_demo_payload
 
@@ -484,6 +485,20 @@ def orchestrate_preview(
     steps = [step1, step2, step3, step4, step5]
     agent_trace = _build_trace(run_id, request.intent, overall_status, steps)
 
+    # M9-A: build the deterministic plain-language summary from the
+    # already-produced result fields. This call must NOT mutate any of
+    # the inputs (preview_payload / trace / status / etc.) and must NOT
+    # re-run deterministic engines.
+    intelligence = build_intelligence_summary(
+        intent=request.intent,
+        status=overall_status,
+        requires_human_approval=True,
+        preview_payload=preview_payload,
+        agent_trace=agent_trace,
+        warnings=warnings,
+        limitations=limitations,
+    )
+
     return AgentOrchestratorResult(
         intent=request.intent,
         status=overall_status,
@@ -492,4 +507,5 @@ def orchestrate_preview(
         agent_trace=agent_trace,
         warnings=warnings,
         limitations=limitations,
+        intelligence_summary=intelligence,
     )

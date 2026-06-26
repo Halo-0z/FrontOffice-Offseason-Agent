@@ -95,6 +95,9 @@ def test_signing_preview_returns_preview_only_result() -> None:
     assert result.preview_payload is not None
     assert "proposal" in result.preview_payload or "actions" in result.preview_payload
     assert result.agent_trace is not None
+    # M9-A: additive intelligence_summary must be present
+    assert result.intelligence_summary is not None
+    assert result.intelligence_summary.source == "deterministic-fake-adapter"
 
 
 def test_trade_preview_demo_returns_preview_only_result() -> None:
@@ -111,6 +114,9 @@ def test_trade_preview_demo_returns_preview_only_result() -> None:
     assert "trade_transaction" in result.preview_payload
     assert "preview" in result.preview_payload
     assert result.agent_trace is not None
+    # M9-A: additive intelligence_summary must be present
+    assert result.intelligence_summary is not None
+    assert result.intelligence_summary.source == "deterministic-fake-adapter"
 
 
 def test_hold_returns_hold_result() -> None:
@@ -123,6 +129,9 @@ def test_hold_returns_hold_result() -> None:
     assert result.requires_human_approval is True
     assert result.preview_payload is not None
     assert result.preview_payload.get("status") == "hold"
+    # M9-A: additive intelligence_summary must be present (hold summary)
+    assert result.intelligence_summary is not None
+    assert "暂不行动" in result.intelligence_summary.summary_title
 
 
 def test_unsupported_intent_is_blocked_not_guessed() -> None:
@@ -147,6 +156,19 @@ def test_unsupported_intent_is_blocked_not_guessed() -> None:
         # Must NOT have called signing/trade preview: no proposal/trade_transaction keys.
         assert "proposal" not in result.preview_payload
         assert "trade_transaction" not in result.preview_payload
+        # M9-A: blocked results still carry an intelligence_summary that says
+        # "安全拦截" and does not claim any plan was generated.
+        assert result.intelligence_summary is not None
+        blob = " ".join(
+            [
+                result.intelligence_summary.summary_title,
+                result.intelligence_summary.plain_language_summary,
+                result.intelligence_summary.deterministic_verdict,
+            ]
+        )
+        assert "拦截" in blob or "blocked" in blob.lower()
+        assert "补强方案" not in blob
+        assert "双方交易" not in blob
 
 
 # --------------------------------------------------------------------------- #
@@ -239,6 +261,46 @@ def test_orchestrator_module_has_no_forbidden_imports() -> None:
     for name in forbidden_imports:
         assert f"import {name}" not in source and f"from {name}" not in source, (
             f"orchestrator must not import {name!r}"
+        )
+
+
+@pytest.mark.parametrize(
+    "module_path",
+    [
+        "backend.app.services.agent_intelligence",
+        "backend.app.models.agent_intelligence",
+    ],
+)
+def test_intelligence_modules_have_no_forbidden_imports(module_path: str) -> None:
+    """M9-A: intelligence modules must not import LLM/MCP/network libs,
+    and must not import the deterministic engines (they only read already-
+    built result fields)."""
+    import importlib
+
+    mod = importlib.import_module(module_path)
+    source = Path(mod.__file__).read_text(encoding="utf-8")
+    forbidden_imports = [
+        "openai",
+        "anthropic",
+        "mcp",
+        "requests",
+        "httpx",
+        "aiohttp",
+        "urllib",
+        "socket",
+        "selenium",
+        "playwright",
+        "bs4",
+        "beautifulsoup",
+        "scrapy",
+        "websocket",
+        "transaction_rule_engine",
+        "trade_simulator",
+        "snapshot_loader",
+    ]
+    for name in forbidden_imports:
+        assert f"import {name}" not in source and f"from {name}" not in source, (
+            f"{module_path} must not import {name!r}"
         )
 
 

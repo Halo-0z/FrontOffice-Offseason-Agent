@@ -105,6 +105,45 @@ def test_signing_preview_response_shape(client: TestClient) -> None:
     assert len(body["agent_trace"]["steps"]) == 5
     assert body["agent_trace"]["steps"][4]["tool_name"] == "request_human_approval"
     assert body["agent_trace"]["steps"][4]["requires_human_review"] is True
+    # M9-A: intelligence_summary must be present with the documented shape,
+    # and all legacy fields must remain intact.
+    _assert_intelligence_summary_shape(body)
+
+
+def _assert_intelligence_summary_shape(body: Dict[str, Any]) -> None:
+    """Shared assertion: response body has the M9-A intelligence_summary
+    add-on while keeping every legacy field intact."""
+    # Legacy fields must remain in the response.
+    for key in (
+        "intent",
+        "status",
+        "requires_human_approval",
+        "preview_payload",
+        "agent_trace",
+        "warnings",
+        "limitations",
+    ):
+        assert key in body, f"M9-A regression: legacy field {key!r} missing from API response"
+    assert "intelligence_summary" in body, (
+        "M9-A: POST /api/agent/orchestrate-preview must include intelligence_summary"
+    )
+    s = body["intelligence_summary"]
+    assert isinstance(s, dict)
+    for key in (
+        "summary_title",
+        "plain_language_summary",
+        "deterministic_verdict",
+        "evidence_summary",
+        "risk_summary",
+        "approval_note",
+        "data_limitations",
+        "next_review_questions",
+        "source",
+    ):
+        assert key in s, f"intelligence_summary missing field {key!r}"
+    assert s["source"] == "deterministic-fake-adapter"
+    # Must explicitly disclose read-only / human-approval semantics.
+    assert "只读" in s["approval_note"] or "人工" in s["approval_note"]
 
 
 # --------------------------------------------------------------------------- #
@@ -132,6 +171,8 @@ def test_trade_preview_demo_preserves_validation(client: TestClient) -> None:
     orch_vr = body["preview_payload"]["preview"]["validation_result"]
     assert orch_vr["status"] == direct_vr["status"]
     assert orch_vr["is_valid"] == direct_vr["is_valid"]
+    # M9-A
+    _assert_intelligence_summary_shape(body)
 
 
 # --------------------------------------------------------------------------- #
@@ -150,6 +191,9 @@ def test_hold_returns_hold_result(client: TestClient) -> None:
     assert body["status"] == "hold"
     assert body["requires_human_approval"] is True
     assert body["preview_payload"]["status"] == "hold"
+    # M9-A
+    _assert_intelligence_summary_shape(body)
+    assert "暂不行动" in body["intelligence_summary"]["summary_title"]
 
 
 # --------------------------------------------------------------------------- #
@@ -181,6 +225,14 @@ def test_unsupported_intent_blocked_not_guessed(client: TestClient) -> None:
         # Must NOT have invoked signing/trade preview (no proposal/trade_transaction keys).
         assert "proposal" not in body["preview_payload"]
         assert "trade_transaction" not in body["preview_payload"]
+        # M9-A: blocked response still includes an intelligence_summary that
+        # explains the interception and does not claim a generated plan.
+        _assert_intelligence_summary_shape(body)
+        title = body["intelligence_summary"]["summary_title"]
+        plain = body["intelligence_summary"]["plain_language_summary"]
+        assert "拦截" in title or "拦截" in plain
+        assert "补强方案" not in title + plain
+        assert "双方交易" not in title + plain
 
 
 # --------------------------------------------------------------------------- #

@@ -1570,3 +1570,171 @@ def test_api_agent_trace_model_frozen_does_not_leak_verdict_mutability() -> None
         trace.requires_human_approval = False  # type: ignore[misc]
     with pytest.raises(Exception):
         trace.final_message = "executed"  # type: ignore[misc]
+
+
+# --------------------------------------------------------------------------- #
+# M9-A guardrails: Agent Intelligence Summary adapter
+#
+# The deterministic fake adapter must:
+# - never import LLM / network / scraping libraries
+# - never call deterministic engines (rule_engine / trade_simulator /
+#   snapshot_loader) — it only reads already-built payloads
+# - never expose execute/apply/commit/mutate semantics in its output
+# - never claim live/real-time/current data
+# - never leak technical IDs into the natural-language summary
+# - be a frozen dataclass (immutable after construction)
+# --------------------------------------------------------------------------- #
+
+
+_M9A_FORBIDDEN_MODULE_IMPORTS = [
+    "openai",
+    "anthropic",
+    "mcp",
+    "requests",
+    "httpx",
+    "aiohttp",
+    "urllib",
+    "socket",
+    "selenium",
+    "playwright",
+    "bs4",
+    "beautifulsoup",
+    "scrapy",
+    "websocket",
+]
+
+_M9A_FORBIDDEN_ENGINE_IMPORTS = [
+    "transaction_rule_engine",
+    "trade_simulator",
+    "snapshot_loader",
+]
+
+
+def _read_module_source(module_name: str) -> str:
+    import importlib
+    from pathlib import Path
+
+    mod = importlib.import_module(module_name)
+    return Path(mod.__file__).read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "backend.app.services.agent_intelligence",
+        "backend.app.models.agent_intelligence",
+    ],
+)
+def test_m9a_intelligence_modules_no_llm_or_network_imports(module_name: str) -> None:
+    src = _read_module_source(module_name)
+    for name in _M9A_FORBIDDEN_MODULE_IMPORTS:
+        assert f"import {name}" not in src and f"from {name}" not in src, (
+            f"M9-A violation: {module_name} must not import {name!r}"
+        )
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "backend.app.services.agent_intelligence",
+    ],
+)
+def test_m9a_intelligence_service_does_not_import_deterministic_engines(
+    module_name: str,
+) -> None:
+    """The intelligence adapter is an explainer only; it must not call the
+    deterministic engines (those run BEFORE the summary is built)."""
+    src = _read_module_source(module_name)
+    for name in _M9A_FORBIDDEN_ENGINE_IMPORTS:
+        assert f"import {name}" not in src and f"from {name}" not in src, (
+            f"M9-A violation: {module_name} must not import {name!r}"
+        )
+
+
+def test_m9a_intelligence_summary_is_frozen_dataclass() -> None:
+    from backend.app.models.agent_intelligence import AgentIntelligenceSummary
+
+    s = AgentIntelligenceSummary(
+        summary_title="t",
+        plain_language_summary="p",
+        deterministic_verdict="v",
+    )
+    with pytest.raises(Exception):
+        s.summary_title = "changed"  # type: ignore[misc]
+
+
+def test_m9a_orchestrator_endpoint_summary_never_claims_execution(client) -> None:
+    """Across all supported intents, the serialized intelligence_summary
+    must never advertise execution semantics."""
+    import json
+
+    for intent in ("signing_preview", "trade_preview_demo", "hold", "execute_trade"):
+        resp = client.post(
+            "/api/agent/orchestrate-preview",
+            json={"intent": intent, "team_id": "DEM-ATL"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        s = body["intelligence_summary"]
+        blob = json.dumps(s, ensure_ascii=False).lower()
+        for bad in (
+            "executed",
+            "applied",
+            "committed",
+            "auto_execute",
+            "auto_approve",
+            "已执行",
+            "已完成签约",
+            "已完成交易",
+            "自动批准",
+            "已提交",
+            "已落地",
+        ):
+            assert bad not in blob, (
+                f"M9-A violation: intelligence_summary for intent={intent!r} "
+                f"contains execution-semantic word {bad!r}"
+            )
+
+
+def test_m9a_intelligence_summary_does_not_claim_live_or_current_data() -> None:
+    """The summary must not claim live/real-time/current NBA data."""
+    from backend.app.models.agent_orchestrator import AgentOrchestratorRequest
+    from backend.app.services.agent_orchestrator import orchestrate_preview
+    import json
+
+    for intent in ("signing_preview", "trade_preview_demo", "hold", "execute_trade"):
+        req = AgentOrchestratorRequest(intent=intent, team_id="DEM-ATL")
+        r = orchestrate_preview(req, DATA_DIR)
+        s = r.intelligence_summary
+        assert s is not None
+        blob = json.dumps(s.to_dict(), ensure_ascii=False).lower()
+        for bad in ("live nba", "real-time nba", "real time nba", "实时", "最新"):
+            assert bad not in blob, (
+                f"M9-A violation: summary for {intent!r} contains {bad!r}"
+            )
+        # "current" (without being "current nba") is also banned per spec in
+        # the English list — confirm no standalone "current" survives in the
+        # final serialized summary.
+        assert "current" not in blob, (
+            f"M9-A violation: summary for {intent!r} contains forbidden word 'current'"
+        )
+
+
+def test_m9a_intelligence_summary_exposes_no_execute_functions() -> None:
+    """The intelligence service module must not expose functions that
+    sound like they mutate/write data."""
+    import backend.app.services.agent_intelligence as ai
+
+    for forbidden in (
+        "execute",
+        "apply",
+        "commit",
+        "mutate",
+        "write",
+        "sign_player",
+        "trade_player",
+        "save_snapshot",
+    ):
+        assert not hasattr(ai, forbidden), (
+            f"M9-A violation: agent_intelligence must not expose {forbidden!r}"
+        )

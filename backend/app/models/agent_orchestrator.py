@@ -176,6 +176,11 @@ class AgentOrchestratorResult:
         agent_trace: The orchestrator-level trace (5 steps).
         warnings: Non-blocking warning strings.
         limitations: Hard limitation / disclaimer strings.
+        intelligence_summary: (M9-A, additive) Optional deterministic
+            plain-language summary derived only from the other fields.
+            ``None`` means the summary was not attached (e.g. older
+            callers); this field never mutates other fields and never
+            carries an LLM response.
     """
 
     intent: str
@@ -185,9 +190,10 @@ class AgentOrchestratorResult:
     agent_trace: Dict[str, Any]
     warnings: List[str] = field(default_factory=list)
     limitations: List[str] = field(default_factory=list)
+    intelligence_summary: Optional[Any] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        out: Dict[str, Any] = {
             "intent": self.intent,
             "status": self.status,
             "requires_human_approval": self.requires_human_approval,
@@ -196,3 +202,11 @@ class AgentOrchestratorResult:
             "warnings": list(self.warnings),
             "limitations": list(self.limitations),
         }
+        if self.intelligence_summary is not None:
+            if hasattr(self.intelligence_summary, "to_dict") and callable(
+                self.intelligence_summary.to_dict
+            ):
+                out["intelligence_summary"] = self.intelligence_summary.to_dict()
+            else:
+                out["intelligence_summary"] = self.intelligence_summary
+        return out
