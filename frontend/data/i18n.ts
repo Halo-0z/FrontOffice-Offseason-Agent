@@ -945,6 +945,83 @@ export const copy = {
     indicatorCurrentUseSnapshot: { zh: "演示 / 验证", en: "Demo / validation" } as Bilingual,
     indicatorCurrentUseOffline: { zh: "离线演示", en: "Offline demo" } as Bilingual,
   } as const,
+
+  // ---- M8-E3: Agent execution trace card ----
+  // Plain-language copy for the right-side Inspector card that shows
+  // the agent's step-by-step execution chain returned by the backend.
+  // Engineering fields (tool_name, technical_details, raw inputs/outputs)
+  // are hidden by default in a collapsed <details> section. The main
+  // card speaks to a non-technical user.
+  agentTrace: {
+    // Card title + subtitle
+    cardTitle: { zh: "Agent 执行步骤", en: "Agent Execution Steps" } as Bilingual,
+    cardSubtitle: {
+      zh: "下面是本次建议从读取数据到等待人工确认的完整链路。",
+      en: "This shows how the agent moved from data reading to human approval.",
+    } as Bilingual,
+
+    // Empty state (no proposal/trade run yet)
+    emptyState: {
+      zh: "运行一次签约建议或交易预览后，这里会显示 Agent 链路。",
+      en: "Run a signing recommendation or trade preview to see the agent trace.",
+    } as Bilingual,
+
+    // Fallback when API didn't return agent_trace
+    fallbackTitle: { zh: "未返回 Agent 链路", en: "No agent trace" } as Bilingual,
+    fallbackBody: {
+      zh: "当前结果没有返回 Agent 链路，页面仍显示原有预览。",
+      en: "This result did not include an agent trace, so the original preview is still shown.",
+    } as Bilingual,
+
+    // Empty steps
+    emptySteps: {
+      zh: "Agent 链路为空，但预览结果仍可查看。",
+      en: "The agent trace is empty, but the preview result is still available.",
+    } as Bilingual,
+
+    // Run-level summary labels
+    labelCurrentState: { zh: "当前状态", en: "Current state" } as Bilingual,
+    labelDataSource: { zh: "数据来源", en: "Data source" } as Bilingual,
+    labelHumanApproval: { zh: "需要人工确认", en: "Human approval" } as Bilingual,
+    labelFinalMessage: { zh: "结束提示", en: "Final note" } as Bilingual,
+
+    // Human approval values
+    approvalRequired: { zh: "需要", en: "Required" } as Bilingual,
+    approvalNotRequired: { zh: "不需要", en: "Not required" } as Bilingual,
+
+    // Step-level labels
+    labelEvidence: { zh: "证据", en: "Evidence" } as Bilingual,
+    labelWarnings: { zh: "提醒", en: "Warnings" } as Bilingual,
+    labelNeedsReview: { zh: "需人工复核", en: "Needs review" } as Bilingual,
+
+    // Step status badges (plain language, not engineering jargon)
+    statusCompleted: { zh: "已完成", en: "Completed" } as Bilingual,
+    statusWarning: { zh: "有提醒", en: "Has warning" } as Bilingual,
+    statusBlocked: { zh: "已阻断", en: "Blocked" } as Bilingual,
+    statusRunning: { zh: "运行中", en: "Running" } as Bilingual,
+    statusPending: { zh: "等待中", en: "Pending" } as Bilingual,
+    statusUnknown: { zh: "未知", en: "Unknown" } as Bilingual,
+
+    // Collapsible technical details
+    techToggle: { zh: "查看技术详情", en: "View technical details" } as Bilingual,
+    techToggleHide: { zh: "隐藏技术详情", en: "Hide technical details" } as Bilingual,
+    techHint: {
+      zh: "以下为开发者调试用字段，普通用户无需关注。",
+      en: "Developer debug fields below — not needed for normal use.",
+    } as Bilingual,
+    techFieldToolName: { zh: "tool_name", en: "tool_name" } as Bilingual,
+    techFieldInputs: { zh: "inputs_summary", en: "inputs_summary" } as Bilingual,
+    techFieldOutputs: { zh: "outputs_summary", en: "outputs_summary" } as Bilingual,
+    techFieldDetails: { zh: "technical_details", en: "technical_details" } as Bilingual,
+    techFieldEvidenceIds: { zh: "evidence_ids", en: "evidence_ids" } as Bilingual,
+    techFieldEmpty: { zh: "（空）", en: "(empty)" } as Bilingual,
+
+    // Read-only disclaimer (mirrors backend final_message)
+    readOnlyNote: {
+      zh: "这是只读预览，不会自动执行。",
+      en: "This is a read-only preview; nothing is auto-executed.",
+    } as Bilingual,
+  } as const,
 } as const;
 
 // ---- Helper: format salary ----

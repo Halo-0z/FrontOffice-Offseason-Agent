@@ -25,6 +25,9 @@ import {
   fetchProposalPreview,
   fetchTradePreviewDemo,
   fetchHealth,
+  type AgentTrace,
+  type AgentTraceStep,
+  type AgentTraceStepStatus,
   type HealthResponse,
   type ProposalPreviewParams,
 } from "../../lib/apiClient";
@@ -68,6 +71,9 @@ interface RunResult {
   fallbackReason?: string;
   proposal: DemoPayload | null;
   trade: DemoTradePayload | null;
+  // M8-E3: additive agent_trace from the backend. Optional because
+  // fallback samples and older payloads do not include it.
+  agentTrace?: AgentTrace | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +124,317 @@ function explainApiError(err: ApiError, lang: Lang): string {
     default:
       return `Backend API call failed: ${err.message}`;
   }
+}
+
+// ---------------------------------------------------------------------------
+// M8-E3 helpers: agent trace display
+// ---------------------------------------------------------------------------
+
+/**
+ * Map a trace step status to a plain-language bilingual label.
+ * Centralized so the badge text is consistent across the card.
+ */
+function stepStatusLabel(
+  status: AgentTraceStepStatus | string,
+  lang: Lang,
+): { text: string; variant: AgentTraceStepStatus } {
+  const at = copy.agentTrace;
+  const known: AgentTraceStepStatus[] = [
+    "completed",
+    "warning",
+    "blocked",
+    "running",
+    "pending",
+  ];
+  const variant = (
+    known.includes(status as AgentTraceStepStatus)
+      ? status
+      : "pending"
+  ) as AgentTraceStepStatus;
+  const map: Record<AgentTraceStepStatus, string> = {
+    completed: at.statusCompleted[lang],
+    warning: at.statusWarning[lang],
+    blocked: at.statusBlocked[lang],
+    running: at.statusRunning[lang],
+    pending: at.statusPending[lang],
+  };
+  return { text: map[variant], variant };
+}
+
+/**
+ * Format a trace value (string / array / object / primitive) for the
+ * collapsible technical-details section.
+ *
+ * - string: shown as-is
+ * - array: comma-joined (or "(empty)" when empty)
+ * - object: pretty-printed JSON in a <pre>
+ * - null/undefined: "(empty)"
+ *
+ * Returns a React node so the caller can render directly. Never throws.
+ */
+function formatTraceValue(
+  value: unknown,
+  lang: Lang,
+): { node: React.ReactNode; isEmpty: boolean } {
+  const emptyLabel = copy.agentTrace.techFieldEmpty[lang];
+  if (value === null || value === undefined) {
+    return { node: <span className="agent-trace-tech__empty">{emptyLabel}</span>, isEmpty: true };
+  }
+  if (typeof value === "string") {
+    if (value.length === 0) {
+      return { node: <span className="agent-trace-tech__empty">{emptyLabel}</span>, isEmpty: true };
+    }
+    return { node: <span className="agent-trace-tech__str">{value}</span>, isEmpty: false };
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return { node: <span className="agent-trace-tech__str">{String(value)}</span>, isEmpty: false };
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return { node: <span className="agent-trace-tech__empty">{emptyLabel}</span>, isEmpty: true };
+    }
+    // Render arrays as a small inline list, NOT raw JSON.
+    return {
+      node: (
+        <ul className="agent-trace-tech__list">
+          {value.map((item, i) => (
+            <li key={i}>{formatTraceValue(item, lang).node}</li>
+          ))}
+        </ul>
+      ),
+      isEmpty: false,
+    };
+  }
+  if (typeof value === "object") {
+    // Pretty-printed JSON in a <pre> for objects. Horizontal scroll
+    // is enabled by CSS so long values don't blow up the card width.
+    let json = "";
+    try {
+      json = JSON.stringify(value, null, 2);
+    } catch {
+      json = String(value);
+    }
+    return {
+      node: <pre className="agent-trace-tech__pre">{json}</pre>,
+      isEmpty: false,
+    };
+  }
+  return { node: <span className="agent-trace-tech__str">{String(value)}</span>, isEmpty: false };
+}
+
+/**
+ * Render a single agent trace step. The main layer shows only
+ * plain-language content; engineering fields are tucked inside a
+ * collapsed <details>.
+ */
+function AgentTraceStepRow({
+  step,
+  lang,
+  index,
+}: {
+  step: AgentTraceStep;
+  lang: Lang;
+  index: number;
+}) {
+  const at = copy.agentTrace;
+  const { text: statusText, variant } = stepStatusLabel(step.status, lang);
+  const warnings = step.warnings ?? [];
+  const evidenceIds = step.evidence_ids ?? [];
+  const needsReview = step.requires_human_review === true;
+  const inputs = formatTraceValue(step.inputs_summary, lang);
+  const outputs = formatTraceValue(step.outputs_summary, lang);
+  const techDetails = formatTraceValue(step.technical_details, lang);
+  const evidenceNode = formatTraceValue(evidenceIds, lang);
+
+  return (
+    <li className={`agent-trace-step agent-trace-step--${variant}`}>
+      <div className="agent-trace-step__head">
+        <span className="agent-trace-step__seq">{index + 1}</span>
+        <span className="agent-trace-step__title">{step.title}</span>
+        <span
+          className={`agent-trace-status-badge agent-trace-status-badge--${variant}`}
+        >
+          {statusText}
+        </span>
+      </div>
+      <p className="agent-trace-step__summary">{step.plain_language_summary}</p>
+
+      {/* Warnings — short, plain language. Empty by default. */}
+      {warnings.length > 0 && (
+        <ul className="agent-trace-step__warnings">
+          {warnings.map((w, i) => (
+            <li key={i}>{w}</li>
+          ))}
+        </ul>
+      )}
+
+      {/* Evidence count + needs-review flag — plain language. */}
+      <div className="agent-trace-step__meta">
+        {evidenceIds.length > 0 ? (
+          <span className="agent-trace-step__evidence">
+            {at.labelEvidence[lang]}: {evidenceIds.length}（{evidenceIds.join(", ")}）
+          </span>
+        ) : null}
+        {needsReview && (
+          <span className="agent-trace-step__review">{at.labelNeedsReview[lang]}</span>
+        )}
+      </div>
+
+      {/* Collapsible technical details (developer-facing).
+          Contains tool_name, inputs_summary, outputs_summary,
+          technical_details, evidence_ids — all formatted, never raw
+          [object Object]. */}
+      <details className="agent-trace-technical-details">
+        <summary>
+          <ChevronDownIcon />
+          {at.techToggle[lang]}
+        </summary>
+        <div className="agent-trace-technical-details__body">
+          <p className="agent-trace-technical-details__hint">{at.techHint[lang]}</p>
+          <div className="agent-trace-technical-details__row">
+            <span className="agent-trace-technical-details__label">
+              {at.techFieldToolName[lang]}
+            </span>
+            <span className="agent-trace-technical-details__value">
+              {step.tool_name}
+            </span>
+          </div>
+          <div className="agent-trace-technical-details__row">
+            <span className="agent-trace-technical-details__label">
+              {at.techFieldInputs[lang]}
+            </span>
+            <div className="agent-trace-technical-details__value">
+              {inputs.node}
+            </div>
+          </div>
+          <div className="agent-trace-technical-details__row">
+            <span className="agent-trace-technical-details__label">
+              {at.techFieldOutputs[lang]}
+            </span>
+            <div className="agent-trace-technical-details__value">
+              {outputs.node}
+            </div>
+          </div>
+          <div className="agent-trace-technical-details__row">
+            <span className="agent-trace-technical-details__label">
+              {at.techFieldDetails[lang]}
+            </span>
+            <div className="agent-trace-technical-details__value">
+              {techDetails.node}
+            </div>
+          </div>
+          <div className="agent-trace-technical-details__row">
+            <span className="agent-trace-technical-details__label">
+              {at.techFieldEvidenceIds[lang]}
+            </span>
+            <div className="agent-trace-technical-details__value">
+              {evidenceNode.node}
+            </div>
+          </div>
+        </div>
+      </details>
+    </li>
+  );
+}
+
+/**
+ * Render the full Agent Trace card. Three display modes:
+ *   - empty (no run yet)
+ *   - fallback (API returned a payload but no agent_trace)
+ *   - trace present (render run-level summary + steps list)
+ *
+ * Never throws — every field is read defensively so a malformed
+ * backend response cannot crash the page.
+ */
+function AgentTraceCard({
+  runState,
+  result,
+  lang,
+}: {
+  runState: RunState;
+  result: RunResult | null;
+  lang: Lang;
+}) {
+  const at = copy.agentTrace;
+  const trace = result?.agentTrace ?? null;
+  const hasRun = runState === "complete" && result !== null;
+
+  // Empty state: no run yet.
+  if (!hasRun) {
+    return (
+      <div className="console-agent-trace-card console-agent-trace-card--empty">
+        <div className="agent-trace-header">
+          <span className="agent-trace-header__title">{at.cardTitle[lang]}</span>
+        </div>
+        <p className="agent-trace-empty">{at.emptyState[lang]}</p>
+      </div>
+    );
+  }
+
+  // Fallback: run happened but no agent_trace came back (older
+  // backend, fallback samples, or backend error).
+  if (!trace) {
+    return (
+      <div className="console-agent-trace-card console-agent-trace-card--fallback">
+        <div className="agent-trace-header">
+          <span className="agent-trace-header__title">{at.cardTitle[lang]}</span>
+        </div>
+        <p className="agent-trace-fallback-title">{at.fallbackTitle[lang]}</p>
+        <p className="agent-trace-fallback-body">{at.fallbackBody[lang]}</p>
+      </div>
+    );
+  }
+
+  // Defensive: if steps is missing or empty, show the empty-steps note
+  // but still render the run-level summary.
+  const steps: AgentTraceStep[] = Array.isArray(trace.steps) ? trace.steps : [];
+  const approvalLabel = trace.requires_human_approval
+    ? at.approvalRequired[lang]
+    : at.approvalNotRequired[lang];
+
+  return (
+    <div className="console-agent-trace-card">
+      <div className="agent-trace-header">
+        <span className="agent-trace-header__title">{at.cardTitle[lang]}</span>
+        <span className="agent-trace-header__subtitle">{at.cardSubtitle[lang]}</span>
+      </div>
+
+      {/* Run-level summary — plain language only. */}
+      <div className="agent-trace-summary">
+        <div className="agent-trace-summary__row">
+          <span className="agent-trace-summary__label">{at.labelCurrentState[lang]}</span>
+          <span className="agent-trace-summary__value">{trace.current_state}</span>
+        </div>
+        <div className="agent-trace-summary__row">
+          <span className="agent-trace-summary__label">{at.labelDataSource[lang]}</span>
+          <span className="agent-trace-summary__value">{trace.data_source_label}</span>
+        </div>
+        <div className="agent-trace-summary__row">
+          <span className="agent-trace-summary__label">{at.labelHumanApproval[lang]}</span>
+          <span className="agent-trace-summary__value">{approvalLabel}</span>
+        </div>
+        <div className="agent-trace-summary__row">
+          <span className="agent-trace-summary__label">{at.labelFinalMessage[lang]}</span>
+          <span className="agent-trace-summary__value">{trace.final_message}</span>
+        </div>
+      </div>
+
+      {/* Steps list. Empty list -> empty-steps note (do NOT fabricate). */}
+      {steps.length === 0 ? (
+        <p className="agent-trace-empty-steps">{at.emptySteps[lang]}</p>
+      ) : (
+        <ol className="agent-trace-steps">
+          {steps.map((step, i) => (
+            <AgentTraceStepRow key={step.step_id ?? i} step={step} lang={lang} index={i} />
+          ))}
+        </ol>
+      )}
+
+      {/* Read-only disclaimer — mirrors backend final_message.
+          Reinforces "no auto-execution" boundary. */}
+      <p className="agent-trace-read-only">{at.readOnlyNote[lang]}</p>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -289,14 +606,29 @@ export default function OffseasonPage() {
     try {
       if (currentMode === "trade") {
         const trade = await fetchTradePreviewDemo();
-        apiResult = { mode: currentMode, source: "api", proposal: null, trade };
+        apiResult = {
+          mode: currentMode,
+          source: "api",
+          proposal: null,
+          trade,
+          // M8-E3: backend returns additive `agent_trace`. Static
+          // fallback samples below do not include it, so the field
+          // stays undefined and the page renders a fallback card.
+          agentTrace: trade.agent_trace ?? null,
+        };
       } else {
         const params: ProposalPreviewParams =
           currentMode === "signing"
             ? DEMO_PROPOSAL_REQUESTS.signing
             : DEMO_PROPOSAL_REQUESTS.hold;
         const proposal = await fetchProposalPreview(params);
-        apiResult = { mode: currentMode, source: "api", proposal, trade: null };
+        apiResult = {
+          mode: currentMode,
+          source: "api",
+          proposal,
+          trade: null,
+          agentTrace: proposal.agent_trace ?? null,
+        };
       }
       setDataSource("api");
     } catch (err) {
@@ -313,6 +645,7 @@ export default function OffseasonPage() {
         fallbackReason: reason,
         proposal: fallback.proposal,
         trade: fallback.trade,
+        agentTrace: null,
       };
       setDataSource("fallback");
     }
@@ -441,6 +774,27 @@ export default function OffseasonPage() {
         ? ud.indicatorCurrentUseDemo
         : ud.indicatorCurrentUseOffline;
 
+  // M8-E3 fix: resolve human-approval for BOTH proposal and trade previews.
+  // Previously this only checked `result.proposal?.proposal.requires_human_approval`,
+  // which made trade previews (no proposal/evaluation) falsely show "不需要".
+  // Priority: agent_trace (authoritative M8-E2 source) -> top-level payload
+  // fields -> nested proposal/trade fields. Returns null only when no source
+  // provides a boolean; in that case we render "—" rather than falsely
+  // claiming approval is not required (human approval is a safety boundary).
+  const humanApprovalRequired = (() => {
+    if (result === null) return null;
+    if (result.agentTrace?.requires_human_approval === true) return true;
+    if (result.proposal?.requires_human_approval === true) return true;
+    if (result.proposal?.proposal.requires_human_approval === true) return true;
+    if (result.trade?.requires_human_approval === true) return true;
+    if (result.trade?.preview.requires_human_approval === true) return true;
+    if (result.trade?.trade_transaction.requires_human_approval === true) return true;
+    // If we have a proposal/trace but no explicit true, return false so the
+    // indicator shows "不需要" only when a payload genuinely said so.
+    if (result.proposal || result.trade) return false;
+    return null;
+  })();
+
   const indicatorRows =
     runState === "complete" && result
       ? [
@@ -456,8 +810,12 @@ export default function OffseasonPage() {
           },
           {
             label: { zh: "人工确认", en: "Approval" },
-            value: { zh: result.proposal?.proposal.requires_human_approval ? "需要" : "不需要", en: result.proposal?.proposal.requires_human_approval ? "Required" : "Not required" },
-            ok: !result.proposal?.proposal.requires_human_approval,
+            value: humanApprovalRequired === null
+              ? { zh: "\u2014", en: "\u2014" }
+              : humanApprovalRequired
+                ? { zh: "需要", en: "Required" }
+                : { zh: "不需要", en: "Not required" },
+            ok: humanApprovalRequired === false,
           },
           {
             label: ud.indicatorDataType,
@@ -988,6 +1346,15 @@ export default function OffseasonPage() {
                   ))}
                 </div>
               </div>
+
+              {/* M8-E3: Agent execution trace card.
+                  Shows the additive `agent_trace` returned by the backend
+                  (proposal-preview / trade-preview-demo). Plain-language
+                  summary in the main layer; engineering fields hidden in
+                  a collapsed <details> per step. Renders an empty state,
+                  a fallback card, or the full steps list depending on
+                  what the backend returned. */}
+              <AgentTraceCard runState={runState} result={result} lang={lang} />
 
               {/* Indicators -- only when complete */}
               {runState === "complete" && result && (

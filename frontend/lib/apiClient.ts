@@ -60,6 +60,102 @@ export interface ProposalPreviewParams {
   evidence_query: string | null;
 }
 
+// --------------------------------------------------------------------------- //
+// Agent trace types (M8-E3)
+// --------------------------------------------------------------------------- //
+//
+// These mirror the additive `agent_trace` field returned by the backend
+// on `/api/offseason/proposal-preview` and `/api/offseason/trade-preview-demo`
+// (M8-E2). The field is OPTIONAL on both responses so that:
+//   - older payloads without `agent_trace` still type-check
+//   - the page can render a fallback card when the field is missing
+//
+// Boundary: the frontend only renders these structs — it never sends
+// them to the backend, never mutates them, and never lets a step
+// override the deterministic verdict from `validation_status`.
+
+/** Status of a single trace step. Mirrors backend TraceStepStatus. */
+export type AgentTraceStepStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "warning"
+  | "blocked";
+
+/** A single step in the agent execution trace. */
+export interface AgentTraceStep {
+  step_id: string;
+  sequence: number;
+  status: AgentTraceStepStatus;
+  title: string;
+  plain_language_summary: string;
+  tool_name: string;
+  inputs_summary?: unknown;
+  outputs_summary?: unknown;
+  warnings?: string[];
+  evidence_ids?: string[];
+  requires_human_review?: boolean;
+  technical_details?: Record<string, unknown>;
+  started_at?: string | null;
+  finished_at?: string | null;
+}
+
+/** Overall status of the agent trace. Mirrors TraceOverallStatus. */
+export type AgentTraceOverallStatus =
+  | "completed"
+  | "warning"
+  | "blocked"
+  | "awaiting_human_approval";
+
+/** Approval state reported by the trace. Mirrors ApprovalState. */
+export type AgentTraceApprovalState =
+  | "not_required"
+  | "required"
+  | "approved_preview"
+  | "blocked";
+
+/** Intent type reported by the trace. Mirrors TraceIntentType. */
+export type AgentTraceIntentType =
+  | "signing"
+  | "trade"
+  | "hold"
+  | "compare";
+
+/** The full agent trace envelope returned by the backend. */
+export interface AgentTrace {
+  run_id: string;
+  intent_type: AgentTraceIntentType | string;
+  overall_status: AgentTraceOverallStatus | string;
+  current_state: string;
+  data_source_label: string;
+  steps: AgentTraceStep[];
+  requires_human_approval: boolean;
+  approval_state: AgentTraceApprovalState | string;
+  final_message: string;
+}
+
+/**
+ * Response shape for POST /api/offseason/proposal-preview.
+ *
+ * `agent_trace` is additive (M8-E2). The legacy fields come from
+ * `DemoPayload`; the trace is layered on top as an optional key so
+ * older payloads (and the local static fallback samples) still
+ * type-check.
+ */
+export type ProposalPreviewResponse = DemoPayload & {
+  agent_trace?: AgentTrace;
+};
+
+/**
+ * Response shape for GET /api/offseason/trade-preview-demo.
+ *
+ * `agent_trace` is additive (M8-E2). The legacy fields come from
+ * `DemoTradePayload`; the trace is layered on top as an optional key.
+ */
+export type TradePreviewDemoResponse = DemoTradePayload & {
+  agent_trace?: AgentTrace;
+};
+
 /** Error thrown when the API call fails for any reason. */
 export class ApiError extends Error {
   readonly kind:
@@ -171,11 +267,14 @@ async function fetchJson<T>(
  */
 export async function fetchProposalPreview(
   params: ProposalPreviewParams,
-): Promise<DemoPayload> {
-  return fetchJson<DemoPayload>("/api/offseason/proposal-preview", {
-    method: "POST",
-    body: JSON.stringify(params),
-  });
+): Promise<ProposalPreviewResponse> {
+  return fetchJson<ProposalPreviewResponse>(
+    "/api/offseason/proposal-preview",
+    {
+      method: "POST",
+      body: JSON.stringify(params),
+    },
+  );
 }
 
 /**
@@ -183,8 +282,10 @@ export async function fetchProposalPreview(
  *
  * Returns the fixed demo two-team trade preview (DEM-ATL <-> DEM-PDX).
  */
-export async function fetchTradePreviewDemo(): Promise<DemoTradePayload> {
-  return fetchJson<DemoTradePayload>("/api/offseason/trade-preview-demo");
+export async function fetchTradePreviewDemo(): Promise<TradePreviewDemoResponse> {
+  return fetchJson<TradePreviewDemoResponse>(
+    "/api/offseason/trade-preview-demo",
+  );
 }
 
 /**
