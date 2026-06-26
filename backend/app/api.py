@@ -12,6 +12,8 @@ Endpoints:
 - ``POST /api/offseason/proposal-preview``   — wraps ``build_demo_payload``
 - ``GET  /api/offseason/trade-preview-demo`` — wraps trade demo payload
 - ``GET  /api/offseason/scenarios``          — lists supported demo modes
+- ``POST /api/agent/orchestrate-preview``    — wraps the preview-only
+  orchestrator stub (M8-E5-B)
 
 Guardrails (same as the rest of the project):
 
@@ -34,6 +36,7 @@ Run tests:
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -99,6 +102,37 @@ class ProposalPreviewRequest(BaseModel):
     )
     evidence_query: Optional[str] = Field(
         default=None, description="Free-text evidence search query."
+    )
+
+
+class AgentOrchestratePreviewRequest(BaseModel):
+    """Request body for ``POST /api/agent/orchestrate-preview`` (M8-E5-B).
+
+    Thin adapter over :class:`AgentOrchestratorRequest`. The API layer
+    does NOT re-implement intent routing, signing/trade logic, or salary
+    validation — it delegates entirely to
+    ``backend.app.services.agent_orchestrator.orchestrate_preview()``.
+
+    ``metadata`` is recursively scanned for forbidden mutation-semantic
+    keys (execute, apply, commit, mutate, write, persist, etc.); any
+    occurrence results in HTTP 400.
+    """
+
+    intent: str = Field(
+        ...,
+        min_length=1,
+        description="Allowlisted intent: signing_preview | trade_preview_demo | hold.",
+    )
+    team_id: Optional[str] = Field(
+        default=None, description="Team id for signing_preview runs."
+    )
+    locale: Optional[str] = Field(default=None, description="Locale hint (reserved).")
+    objective: Optional[str] = Field(
+        default=None, description="Objective string for signing_preview."
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional caller metadata. Forbidden keys cause HTTP 400.",
     )
 
 
@@ -371,3 +405,145 @@ def trade_preview_demo() -> Dict[str, Any]:
 
     payload["agent_trace"] = build_trade_agent_trace(payload)
     return payload
+
+
+# --------------------------------------------------------------------------- #
+# Metadata forbidden-key guard
+# --------------------------------------------------------------------------- #
+
+
+_METADATA_FORBIDDEN_KEYS = frozenset({
+    "execute",
+    "executed",
+    "apply",
+    "applied",
+    "commit",
+    "committed",
+    "mutate",
+    "mutated",
+    "write",
+    "persist",
+    "approve_transaction",
+    "execute_transaction",
+    "execute_signing",
+    "roster_update",
+    "contract_update",
+    "snapshot_write",
+})
+
+# Short root verbs that are forbidden regardless of naming convention
+# (camelCase / snake_case). These are checked as substring tokens after
+# splitting on underscores and camelCase boundaries.
+_FORBIDDEN_ROOTS = frozenset({
+    "execute", "executed", "apply", "applied",
+    "commit", "committed", "mutate", "mutated",
+    "write", "persist",
+})
+
+
+def _split_key_tokens(key: str) -> list[str]:
+    """Split a key into tokens, handling both snake_case and camelCase.
+
+    Examples:
+        "execute_transaction" -> ["execute", "transaction"]
+        "CommitTransaction"  -> ["commit", "transaction"]
+        "EXECUTE"            -> ["execute"]
+        "snapshot_write"     -> ["snapshot", "write"]
+    """
+    # Insert underscores before uppercase letters that follow a lowercase
+    # letter or that are followed by a lowercase letter (handles "HTMLParser"
+    # style sequences).
+    s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", key)
+    s = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", s)
+    return [t.lower() for t in s.replace("-", "_").split("_") if t]
+
+
+def _find_forbidden_metadata_key(obj: Any, _path: str = "") -> Optional[str]:
+    """Recursively scan a metadata object for forbidden keys.
+
+    Returns the dotted path of the first forbidden key found, or ``None``
+    if the metadata is clean. Lists and nested dicts are both traversed.
+
+    Matching is case-insensitive and supports both snake_case and camelCase
+    keys. A key is forbidden if:
+    - Its lowercased form exactly matches a forbidden key; OR
+    - After splitting on underscores, any token equals a forbidden root verb.
+    """
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            key_lower = str(k).lower()
+            path_here = f"{_path}.{k}" if _path else str(k)
+            # Exact match against the full forbidden set
+            if key_lower in _METADATA_FORBIDDEN_KEYS:
+                return path_here
+            # Token-based match for camelCase / compound names
+            tokens = _split_key_tokens(str(k))
+            for token in tokens:
+                if token in _FORBIDDEN_ROOTS:
+                    return path_here
+            found = _find_forbidden_metadata_key(v, path_here)
+            if found is not None:
+                return found
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            found = _find_forbidden_metadata_key(v, f"{_path}[{i}]")
+            if found is not None:
+                return found
+    return None
+
+
+# --------------------------------------------------------------------------- #
+# Agent orchestrator endpoint (M8-E5-B)
+# --------------------------------------------------------------------------- #
+
+
+@app.post("/api/agent/orchestrate-preview")
+def agent_orchestrate_preview(req: AgentOrchestratePreviewRequest) -> Dict[str, Any]:
+    """Preview-only agent orchestration endpoint (M8-E5-B).
+
+    Thin HTTP adapter that:
+
+    1. Recursively validates ``req.metadata`` has no forbidden
+       mutation-semantic keys (returns 400 if any found).
+    2. Builds an ``AgentOrchestratorRequest`` from the HTTP body.
+    3. Delegates entirely to
+       ``backend.app.services.agent_orchestrator.orchestrate_preview()``.
+    4. Returns ``AgentOrchestratorResult.to_dict()`` directly — no
+       reshaping, no verdict override, no re-validation, no extra keys.
+
+    Hard guardrails (enforced by the service layer and by tests):
+
+    - Only allowlisted intents (``signing_preview``,
+      ``trade_preview_demo``, ``hold``) produce preview results;
+      unsupported intents are blocked by the service (hold/blocked),
+      never guessed.
+    - ``requires_human_approval`` is always ``true`` in the response.
+    - No execute/apply/commit/mutate/write/persist capability is
+      exposed through this endpoint.
+    - No data file is mutated.
+    - Salary validation verdicts are not recomputed or overridden.
+    """
+    forbidden_path = _find_forbidden_metadata_key(req.metadata)
+    if forbidden_path is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"metadata contains forbidden mutation-semantic key at "
+                f"'{forbidden_path}'. This endpoint is preview-only and "
+                f"does not support execute/apply/commit/mutate/write/persist."
+            ),
+        )
+
+    from backend.app.models.agent_orchestrator import AgentOrchestratorRequest
+    from backend.app.services.agent_orchestrator import orchestrate_preview
+
+    orch_req = AgentOrchestratorRequest(
+        intent=req.intent,
+        team_id=req.team_id,
+        locale=req.locale,
+        objective=req.objective,
+        metadata=dict(req.metadata),
+    )
+
+    result = orchestrate_preview(orch_req, _DATA_DIR)
+    return result.to_dict()
