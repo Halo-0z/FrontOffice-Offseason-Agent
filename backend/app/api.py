@@ -41,7 +41,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
@@ -929,3 +929,138 @@ def agent_natural_language_preview(
 
     result = run_natural_language_preview(svc_req, _DATA_DIR)
     return result.to_dict()
+
+
+# --------------------------------------------------------------------------- #
+# Real snapshot metadata endpoint (M10-D1)
+# --------------------------------------------------------------------------- #
+
+
+_FORBIDDEN_RESPONSE_KEYS = frozenset({
+    "roster", "players", "contracts", "salaries", "cap_sheet",
+    "free_agents", "draft_assets",
+    "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo",
+    "mascot_image", "official_branding", "official_colors", "brand_colors",
+    "pantone", "brand_guidelines",
+    "execute", "apply", "commit", "mutate", "write", "persist", "save",
+    "delete", "update", "submit", "auto_execute", "auto_approve",
+    "file_hashes", "per_file_sources",
+})
+
+
+def _find_forbidden_response_key(obj: Any, _path: str = "") -> Optional[str]:
+    """Recursively scan a response object for forbidden field names.
+
+    Defence-in-depth: even though the service projection already strips
+    these, we double-check before returning to the client. Returns the
+    dotted path of the first forbidden key found, or ``None``.
+    """
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            key_lower = str(k).lower()
+            path_here = f"{_path}.{k}" if _path else str(k)
+            if key_lower in _FORBIDDEN_RESPONSE_KEYS:
+                return path_here
+            found = _find_forbidden_response_key(v, path_here)
+            if found is not None:
+                return found
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            found = _find_forbidden_response_key(v, f"{_path}[{i}]")
+            if found is not None:
+                return found
+    return None
+
+
+_ALLOWED_SNAPSHOT_MODES = frozenset({"real_snapshot"})
+_DENIED_SNAPSHOT_MODES = frozenset({"demo", "live", "current", "latest"})
+
+
+@app.get("/api/snapshots/metadata")
+def snapshots_metadata(
+    snapshot_mode: str = Query(
+        ...,
+        min_length=1,
+        description=(
+            "Snapshot mode. Only 'real_snapshot' is accepted. "
+            "demo/live/current/latest are explicitly rejected."
+        ),
+    ),
+) -> Dict[str, Any]:
+    """Read-only real snapshot metadata endpoint (M10-D1).
+
+    Returns a safe projection of curated real snapshot metadata:
+    snapshot identity, freshness/source disclaimers, and 30 teams'
+    identity merged with non-official UI accent visual metadata.
+
+    Guardrails:
+
+    - Requires ``snapshot_mode=real_snapshot``.
+    - Rejects ``demo`` / ``live`` / ``current`` / ``latest`` / any other
+      mode with HTTP 400.
+    - Hard error on missing files, schema mismatch, hash mismatch, or
+      cross-reference mismatch (HTTP 500). NEVER falls back to demo.
+    - Response is read-only: no execute/apply/commit/mutate/write fields.
+    - Does NOT return roster / contracts / salaries / cap_sheet /
+      free_agents / draft_assets / logos / official branding fields.
+    - Does NOT call LLM, external NBA API, or network.
+    - Does NOT switch the default data source for any other endpoint.
+    """
+    mode_lower = snapshot_mode.strip().lower()
+    if mode_lower in _DENIED_SNAPSHOT_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"snapshot_mode='{snapshot_mode}' is not supported by this endpoint. "
+                "This endpoint only serves 'real_snapshot' and never falls back "
+                "to demo/live/current/latest."
+            ),
+        )
+    if mode_lower not in _ALLOWED_SNAPSHOT_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unsupported snapshot_mode='{snapshot_mode}'. "
+                "Only 'real_snapshot' is accepted."
+            ),
+        )
+
+    from backend.app.services.real_snapshot_metadata_reader import (
+        RealSnapshotCrossReferenceError,
+        RealSnapshotHashError,
+        RealSnapshotMetadataError,
+        RealSnapshotNotFoundError,
+        RealSnapshotSchemaError,
+        load_real_snapshot_metadata,
+    )
+
+    try:
+        metadata = load_real_snapshot_metadata(
+            snapshot_mode=mode_lower,
+            data_dir=_DATA_DIR,
+        )
+    except RealSnapshotNotFoundError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except RealSnapshotSchemaError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except RealSnapshotHashError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except RealSnapshotCrossReferenceError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except RealSnapshotMetadataError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    payload = metadata.to_dict()
+
+    # Defence-in-depth: ensure no forbidden keys leaked.
+    forbidden_path = _find_forbidden_response_key(payload)
+    if forbidden_path is not None:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Internal response projection error: forbidden key '{forbidden_path}' "
+                "present in metadata response."
+            ),
+        )
+
+    return payload
