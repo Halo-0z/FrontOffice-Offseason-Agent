@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://frontoffice-offseason-agent/schemas/source_manifest_schema.json",
   "title": "Source Manifest Schema",
-  "description": "Schema for source_manifest.json in curated real NBA snapshots. Defines source metadata, freshness governance, licensing, and validation tracking. Must not contain any execution, mutation, live-data, or logo-branding fields.",
+  "description": "Schema for source_manifest.json in curated real NBA snapshots. Defines source metadata, freshness governance, licensing, and validation tracking. Must not contain any execution, mutation, live-data, or logo-branding fields. M10-E2 patch: adds player_identities and roster_memberships as allowed future data_categories; adds per-file source_type/manual_review_required/live_eligible/data_freshness_warning/limitations fields; tightens forbidden categories and field names (contracts/salaries/cap_sheets/injuries/rumors/live_status/latest_roster).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -123,10 +123,10 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["teams", "team_visual_metadata", "players", "rosters", "contracts", "cap_config", "cap_sheets", "free_agents", "draft_assets", "evidence_notes"]
+        "enum": ["teams", "team_visual_metadata", "players", "rosters", "player_identities", "roster_memberships", "cap_config", "free_agents", "draft_assets", "evidence_notes"]
       },
       "uniqueItems": true,
-      "description": "Data categories included in this snapshot; may be empty for placeholder fixtures before data is loaded"
+      "description": "Data categories included in this snapshot; may be empty for placeholder fixtures before data is loaded. Contracts/salaries/cap_sheets are FORBIDDEN in M10-E (deferred to M10-F or later). Injuries/scouting/rumors/live-status/current/latest are forbidden at any stage."
     },
     "per_file_sources": {
       "type": "object",
@@ -137,10 +137,35 @@
         "properties": {
           "source_name": { "type": "string", "minLength": 1 },
           "source_url": { "type": ["string", "null"] },
-          "as_of_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
+          "source_type": {
+            "type": "string",
+            "enum": ["manual_curated", "public_reference", "league_roster", "manual_non_official_ui"],
+            "description": "Provenance classification. 'llm_generated' and 'scraped_unreviewed' are forbidden and must not be added."
+          },
+          "as_of_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+          "manual_review_required": {
+            "type": "boolean",
+            "description": "Per-file manual-review flag. All real player/roster data must set this to true."
+          },
+          "live_eligible": {
+            "type": "boolean",
+            "const": false,
+            "description": "Per-file live eligibility; must be false if present."
+          },
+          "data_freshness_warning": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Per-file UI-consumable freshness warning."
+          },
+          "limitations": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1,
+            "description": "Per-file limitations/caveats."
+          }
         }
       },
-      "description": "Per-file source tracking because teams/rosters/contracts/cap_sheets may come from different sources; may be empty for placeholder fixtures"
+      "description": "Per-file source tracking because teams/player_identities/roster_memberships/contracts/cap_sheets may come from different sources; may be empty for placeholder fixtures. M10-E2: extended with optional per-file source_type / manual_review_required / live_eligible / data_freshness_warning / limitations to support future player/roster lineage. Entries for player_identities/roster_memberships must supply these governance fields."
     },
     "allowed_usage": {
       "type": "string",
@@ -191,11 +216,12 @@
       "enum": [
         "execute", "apply", "commit", "mutate", "write", "persist",
         "save", "delete", "update", "submit", "auto_execute", "auto_approve",
-        "current_roster", "live_salaries", "latest_data", "live_data",
-        "current_salaries", "real_time_data",
-        "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo", "mascot_image"
+        "current_roster", "latest_roster", "live_salaries", "latest_data", "live_data",
+        "current_salaries", "real_time_data", "live_status",
+        "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo", "mascot_image",
+        "salaries", "injuries", "injury_status", "scouting_opinions", "rumors"
       ]
     },
-    "description": "Forbidden field names: execution verbs, live/current hints, and logo asset references"
+    "description": "Forbidden field names: execution verbs, live/current/latest hints, logo asset references, salary/injury/scouting/rumor fields (deferred to M10-F+ or permanently forbidden)."
   }
 }
