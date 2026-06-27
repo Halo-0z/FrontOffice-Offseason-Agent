@@ -14,6 +14,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import ProposalViewer from "../../components/ProposalViewer";
+import RealSnapshotTeamSelector from "../../components/RealSnapshotTeamSelector";
 import TradePreviewViewer from "../../components/TradePreviewViewer";
 import { scenarios } from "../../data/demoProposalPayload";
 import { demoTradePayload } from "../../data/demoTradePreviewPayload";
@@ -2347,6 +2348,8 @@ export default function OffseasonPage() {
                   </div>
                 </details>
               </div>
+
+              <RealSnapshotTeamSelector lang={lang} />
 
               {/* Pipeline (M8-F2: retitled to "生成进度", steps are plain-language) */}
               <div className="console-pipeline-card">

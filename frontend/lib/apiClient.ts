@@ -465,6 +465,85 @@ export async function fetchNaturalLanguagePreview(
 }
 
 // --------------------------------------------------------------------------- //
+// M10-D2: Real Snapshot Metadata (read-only team metadata browser)
+// --------------------------------------------------------------------------- //
+
+/**
+ * Per-team non-official UI accent visual metadata returned by the
+ * real snapshot metadata endpoint.
+ */
+export interface RealSnapshotTeamVisualMetadata {
+  accent_color: string;
+  secondary_accent_color: string;
+  badge_style: "abbreviation_badge" | "neutral_badge" | "conference_badge" | string;
+  no_official_branding: boolean;
+}
+
+/** A single team entry in the real snapshot metadata response. */
+export interface RealSnapshotTeamMetadata {
+  team_id: string;
+  city: string;
+  name: string;
+  abbreviation: string;
+  conference: string;
+  division: string;
+  visual_metadata: RealSnapshotTeamVisualMetadata;
+}
+
+/**
+ * Response shape for GET /api/snapshots/metadata?snapshot_mode=real_snapshot.
+ *
+ * This is a READ-ONLY metadata projection. It does NOT include rosters,
+ * contracts, salaries, cap sheets, free agents, draft assets, logos,
+ * official branding fields, file hashes, or file system paths.
+ *
+ * The endpoint requires the explicit query parameter
+ * `snapshot_mode=real_snapshot`; `demo`/`live`/`current`/`latest` are
+ * explicitly rejected. The backend hard-errors (never falls back to
+ * demo) on missing files, schema mismatch, hash mismatch, or
+ * cross-reference mismatch.
+ */
+export interface RealSnapshotMetadataResponse {
+  snapshot_id: string;
+  snapshot_mode: "real_snapshot" | string;
+  snapshot_type: string;
+  season: string;
+  as_of_date: string;
+  freshness_label: string;
+  data_freshness_warning: string;
+  source_name: string;
+  manual_review_required: boolean;
+  live_eligible: boolean;
+  no_official_branding: boolean;
+  data_categories: string[];
+  limitations: string[];
+  teams: RealSnapshotTeamMetadata[];
+}
+
+/**
+ * GET /api/snapshots/metadata?snapshot_mode=real_snapshot
+ *
+ * M10-D1/D2 read-only metadata endpoint. Returns curated real snapshot
+ * metadata (snapshot identity, freshness/source disclaimers, and 30
+ * teams' identity merged with non-official UI accent visual metadata).
+ *
+ * Hard guarantees (enforced by backend tests):
+ *   - read-only GET; no POST/PUT/PATCH/DELETE variant exists
+ *   - requires explicit snapshot_mode=real_snapshot
+ *   - demo/live/current/latest are rejected with HTTP 400
+ *   - hard error (HTTP 500) on any missing/corrupt file, no fallback
+ *   - response excludes roster/contracts/salaries/cap_sheet/logo fields
+ *
+ * The caller should treat errors as terminal — DO NOT fall back to demo
+ * data and relabel it as real.
+ */
+export async function getRealSnapshotMetadata(): Promise<RealSnapshotMetadataResponse> {
+  return fetchJson<RealSnapshotMetadataResponse>(
+    "/api/snapshots/metadata?snapshot_mode=real_snapshot",
+  );
+}
+
+// --------------------------------------------------------------------------- //
 // Demo request presets
 // --------------------------------------------------------------------------- //
 

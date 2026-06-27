@@ -1102,6 +1102,139 @@ export const copy = {
       en: "This is a read-only preview; nothing is auto-executed.",
     } as Bilingual,
   } as const,
+
+  // ---- M10-D2: Real Snapshot Team Metadata Browser (additive, read-only) ----
+  //
+  // This panel is an additive read-only explorer that calls
+  // GET /api/snapshots/metadata?snapshot_mode=real_snapshot. It sits in
+  // the right Inspector column and does NOT feed the signing/trade/hold/
+  // natural-language flows. Selection is local UI state only.
+  realSnapshot: {
+    panelTitle: {
+      zh: "30 队快照元数据",
+      en: "30-team snapshot metadata",
+    } as Bilingual,
+    panelEyebrow: {
+      zh: "只读浏览",
+      en: "Read-only browser",
+    } as Bilingual,
+    readOnlyNote: {
+      zh: "只读浏览，不会切换当前演示数据，也不会影响签约或交易预览。",
+      en: "Read-only browser. This does not switch the active demo data or affect signing/trade previews.",
+    } as Bilingual,
+    safetyNote: {
+      zh: "徽章颜色为非官方 UI 辅助色，不包含球队 logo。",
+      en: "Badge colors are non-official UI accents. No team logos are included.",
+    } as Bilingual,
+    freshness: {
+      zh: "数据截止：{date}",
+      en: "As of {date}",
+    } as Bilingual,
+    warning: {
+      zh: "这不是实时数据，也不包含阵容、合同、薪资或 cap sheet。",
+      en: "This is not live data and does not include rosters, contracts, salaries, or cap sheets.",
+    } as Bilingual,
+    manualReview: {
+      zh: "需要人工复核",
+      en: "Manual review required",
+    } as Bilingual,
+    noOfficialBranding: {
+      zh: "无官方品牌资产",
+      en: "No official branding",
+    } as Bilingual,
+    stateLoading: {
+      zh: "正在加载快照元数据…",
+      en: "Loading snapshot metadata…",
+    } as Bilingual,
+    stateError: {
+      zh: "快照元数据加载失败",
+      en: "Snapshot metadata failed to load",
+    } as Bilingual,
+    errorHint: {
+      zh: "后端 real snapshot 不可用或校验未通过。这里不会回退到演示数据来伪装 real。",
+      en: "The real snapshot is unavailable or failed validation. This panel does not fall back to demo data and relabel it as real.",
+    } as Bilingual,
+    retry: {
+      zh: "重试",
+      en: "Retry",
+    } as Bilingual,
+    searchPlaceholder: {
+      zh: "筛选球队（城市 / 队名 / 缩写）",
+      en: "Filter teams (city / name / abbreviation)",
+    } as Bilingual,
+    teamCount: {
+      zh: "{n} 支球队",
+      en: "{n} teams",
+    } as Bilingual,
+    conferenceEast: {
+      zh: "东部",
+      en: "East",
+    } as Bilingual,
+    conferenceWest: {
+      zh: "西部",
+      en: "West",
+    } as Bilingual,
+    selectedTitle: {
+      zh: "选中球队",
+      en: "Selected team",
+    } as Bilingual,
+    noneSelected: {
+      zh: "从上方列表选择一支球队查看详情。",
+      en: "Select a team from the list above to see details.",
+    } as Bilingual,
+    fieldCity: {
+      zh: "城市",
+      en: "City",
+    } as Bilingual,
+    fieldName: {
+      zh: "队名",
+      en: "Name",
+    } as Bilingual,
+    fieldAbbr: {
+      zh: "缩写",
+      en: "Abbreviation",
+    } as Bilingual,
+    fieldConference: {
+      zh: "分区",
+      en: "Conference",
+    } as Bilingual,
+    fieldDivision: {
+      zh: "赛区",
+      en: "Division",
+    } as Bilingual,
+    fieldMode: {
+      zh: "模式",
+      en: "Mode",
+    } as Bilingual,
+    fieldAsOf: {
+      zh: "数据截止",
+      en: "As of",
+    } as Bilingual,
+    fieldFreshness: {
+      zh: "新鲜度",
+      en: "Freshness",
+    } as Bilingual,
+    badgeStyleAbbreviation: {
+      zh: "缩写徽章",
+      en: "Abbreviation badge",
+    } as Bilingual,
+    badgeStyleNeutral: {
+      zh: "中性徽章",
+      en: "Neutral badge",
+    } as Bilingual,
+    badgeStyleConference: {
+      zh: "分区徽章",
+      en: "Conference badge",
+    } as Bilingual,
+    accentDisclaimer: {
+      zh: "颜色仅为 UI 区分使用，非官方球队配色。",
+      en: "Colors are for UI differentiation only and are not official team colors.",
+    } as Bilingual,
+    notLive: {
+      zh: "非实时数据",
+      en: "Not live data",
+    } as Bilingual,
+  } as const,
 } as const;
 
 // ---- Helper: format salary ----
