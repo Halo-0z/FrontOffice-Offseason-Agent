@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://frontoffice-offseason-agent/schemas/player_identities_schema.json",
+  "title": "Player Identities Schema (M10-E3)",
+  "description": "Schema for normalized/player_identities.json in curated real NBA snapshots. Defines player identity metadata only: name, display attributes, position, and provenance. Must NOT contain salary/contract/cap data, injury/medical status, social media, agent representation, rumors, scouting opinions, live/availability data, depth-chart/minutes/role projections, trade eligibility, logos, or execution/live/current/latest fields. This is a schema-only artifact in M10-E3; no real player data is added in this milestone.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_id",
+    "as_of_date",
+    "manual_review_required",
+    "live_eligible",
+    "data_freshness_warning",
+    "limitations",
+    "source_name",
+    "source_type",
+    "players"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Schema version identifier, e.g. m10-e3-v1"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9_-]+$",
+      "description": "Snapshot identifier this file belongs to, e.g. nba_real_2026_preoffseason_v1"
+    },
+    "as_of_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Data cutoff date in YYYY-MM-DD format"
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ISO 8601 timestamp when this file was generated (optional)"
+    },
+    "source_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Primary source name for player identities"
+    },
+    "source_url": {
+      "type": ["string", "null"],
+      "description": "Source URL, or null if no direct public URL is appropriate"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": ["manual_curated", "public_reference", "league_public_reference", "team_public_reference", "manual_review"],
+      "description": "Provenance classification. llm_generated / scraped_unreviewed / live_api are forbidden."
+    },
+    "manual_review_required": {
+      "type": "boolean",
+      "const": true,
+      "description": "All curated real player identity data requires manual review"
+    },
+    "live_eligible": {
+      "type": "boolean",
+      "const": false,
+      "description": "Player identities are frozen as-of metadata; never live/current"
+    },
+    "data_freshness_warning": {
+      "type": "string",
+      "minLength": 1,
+      "description": "UI-mandatory freshness warning (not live, identity-only)"
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "description": "Limitations/caveats (e.g. identity only, no contract, not live)"
+    },
+    "players": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/player" },
+      "description": "Player identity records"
+    }
+  },
+  "$defs": {
+    "player": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "player_id",
+        "display_name",
+        "first_name",
+        "last_name",
+        "position",
+        "source_name",
+        "source_type",
+        "as_of_date",
+        "manual_review_required",
+        "live_eligible",
+        "data_freshness_warning",
+        "snapshot_id",
+        "limitations"
+      ],
+      "properties": {
+        "player_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "description": "Stable namespaced player identifier (lowercase letters, digits, dash, underscore). Synthetic tests may use p-syn-XXX; future curated ids may use nba-player-slug."
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Display name for UI, e.g. 'T. Alpha' (synthetic)."
+        },
+        "first_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "First / given name."
+        },
+        "last_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Last / family name."
+        },
+        "birthdate": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Birth date YYYY-MM-DD, or null if unavailable / withheld."
+        },
+        "height": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Display height as a human-readable string (e.g. '6-7'), or null."
+        },
+        "weight": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Display weight as a human-readable string (e.g. '220 lb'), or null."
+        },
+        "position": {
+          "type": "string",
+          "enum": ["PG", "SG", "SF", "PF", "C", "G", "F", "FC", "GF"],
+          "description": "Basketball position group; precise positional deployment is out of scope."
+        },
+        "source_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Per-record source name."
+        },
+        "source_url": {
+          "type": ["string", "null"],
+          "description": "Per-record source URL or null."
+        },
+        "source_type": {
+          "type": "string",
+          "enum": ["manual_curated", "public_reference", "league_public_reference", "team_public_reference", "manual_review"],
+          "description": "Per-record provenance classification."
+        },
+        "as_of_date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Record-level cutoff date."
+        },
+        "manual_review_required": {
+          "type": "boolean",
+          "const": true
+        },
+        "data_freshness_warning": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Per-record freshness warning."
+        },
+        "live_eligible": {
+          "type": "boolean",
+          "const": false
+        },
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9_-]+$",
+          "description": "Must match the top-level snapshot_id."
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Optional curator notes (disambiguation, caveats)."
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "description": "Per-record limitations (identity-only, no contract, not live, etc.)."
+        }
+      },
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "salary", "salaries", "contract", "contracts", "cap_hold", "guarantee",
+            "guarantee_amount", "injury", "injuries", "injury_status", "medical",
+            "medical_status", "health", "personal_sensitive_info", "social_media",
+            "agent", "agent_representation", "rumors", "rumor", "scouting_opinion",
+            "scouting_opinions", "live_status", "availability", "real_time_availability",
+            "projected_depth_chart", "depth_chart", "minutes_projection", "role_projection",
+            "trade_eligibility", "cap_sheet", "cap_sheets", "headshot", "headshot_url",
+            "player_image", "photo_url", "official_headshot",
+            "execute", "apply", "commit", "mutate", "write", "persist", "save",
+            "delete", "update", "submit", "auto_execute", "auto_approve",
+            "current_roster", "latest_roster", "live_salaries", "latest_data",
+            "live_data", "current_salaries", "real_time_data",
+            "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo", "mascot_image"
+          ]
+        },
+        "description": "Forbidden per-player fields: money/contract, medical/injury, PII/social/agent, rumors/opinion, live/availability/projection, logos, execution verbs, live/current hints."
+      }
+    }
+  },
+  "propertyNames": {
+    "not": {
+      "enum": [
+        "salary", "salaries", "contract", "contracts", "cap_hold", "guarantee",
+        "guarantee_amount", "injury", "injuries", "injury_status", "medical",
+        "medical_status", "health", "personal_sensitive_info", "social_media",
+        "agent", "agent_representation", "rumors", "rumor", "scouting_opinion",
+        "scouting_opinions", "live_status", "availability", "real_time_availability",
+        "projected_depth_chart", "depth_chart", "minutes_projection", "role_projection",
+        "trade_eligibility", "cap_sheet", "cap_sheets", "headshot", "headshot_url",
+        "player_image", "photo_url", "official_headshot",
+        "execute", "apply", "commit", "mutate", "write", "persist", "save",
+        "delete", "update", "submit", "auto_execute", "auto_approve",
+        "current_roster", "latest_roster", "live_salaries", "latest_data",
+        "live_data", "current_salaries", "real_time_data",
+        "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo", "mascot_image"
+      ]
+    },
+    "description": "Forbidden top-level fields for player_identities.json."
+  }
+}
