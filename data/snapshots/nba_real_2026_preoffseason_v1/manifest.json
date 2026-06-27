@@ -2,20 +2,27 @@
   "snapshot_id": "nba_real_2026_preoffseason_v1",
   "snapshot_type": "curated_real",
   "season": "2025-2026",
-  "source_name": "M10-B placeholder fixture (not real NBA data)",
-  "source_url": null,
-  "source_pack_version": null,
+  "source_name": "NBA.com official public team pages",
+  "source_url": "https://www.nba.com/teams",
+  "source_pack_version": "m10-c1-v1",
   "as_of_date": "2026-06-25",
   "generated_at": "2026-06-27T00:00:00Z",
   "sample_data": false,
   "manual_review_required": true,
-  "teams": [],
-  "description": "Placeholder real snapshot for M10-B schema validation. No real NBA data, players, contracts, or rosters are included.",
+  "teams": [
+    "nba-ATL", "nba-BOS", "nba-BKN", "nba-CHA", "nba-CHI",
+    "nba-CLE", "nba-DAL", "nba-DEN", "nba-DET", "nba-GSW",
+    "nba-HOU", "nba-IND", "nba-LAC", "nba-LAL", "nba-MEM",
+    "nba-MIA", "nba-MIL", "nba-MIN", "nba-NOP", "nba-NYK",
+    "nba-OKC", "nba-ORL", "nba-PHI", "nba-PHX", "nba-POR",
+    "nba-SAC", "nba-SAS", "nba-TOR", "nba-UTA", "nba-WAS"
+  ],
+  "description": "Curated real snapshot containing 30 NBA team identity metadata. Teams only: no rosters, contracts, salaries, cap sheets, or logos.",
   "limitations": [
-    "Placeholder fixture for schema validation only",
-    "Not real NBA data",
-    "No teams, players, contracts, salaries, or rosters populated",
-    "Do not use for demo or production",
-    "manual_review_required: all real data imports require manual review"
+    "Teams metadata only",
+    "No roster, player, contract, salary, or cap data",
+    "No team logos or visual assets",
+    "Third-party data requiring manual review",
+    "Not live data; does not reflect transactions after as_of_date"
   ]
 }

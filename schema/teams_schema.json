@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://frontoffice-offseason-agent/schemas/teams_schema.json",
+  "title": "Teams Schema (M10-C1)",
+  "description": "Schema for normalized/teams.json in curated real NBA snapshots. Contains exactly 30 NBA teams with basic identity metadata (team_id, city, name, abbreviation, conference, division). Must NOT contain logos, colors, rosters, players, contracts, salaries, cap data, or execution/live fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "teams",
+    "source_name",
+    "source_url",
+    "as_of_date",
+    "manual_review_required"
+  ],
+  "properties": {
+    "teams": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "items": {
+        "$ref": "#/$defs/team"
+      },
+      "description": "Exactly 30 NBA teams"
+    },
+    "source_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Source name for team list data"
+    },
+    "source_url": {
+      "type": ["string", "null"],
+      "description": "Source URL or null if not directly URL-addressable"
+    },
+    "as_of_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Data cutoff date in YYYY-MM-DD"
+    },
+    "manual_review_required": {
+      "type": "boolean",
+      "const": true,
+      "description": "All curated real data requires manual review"
+    }
+  },
+  "$defs": {
+    "team": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "team_id",
+        "city",
+        "name",
+        "abbreviation",
+        "conference",
+        "division"
+      ],
+      "properties": {
+        "team_id": {
+          "type": "string",
+          "pattern": "^nba-[A-Z]{3}$",
+          "description": "Team ID in nba-XXX format, e.g. nba-GSW"
+        },
+        "city": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Team city/market name"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Team nickname (e.g. Warriors, Lakers)"
+        },
+        "abbreviation": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "Three-letter team abbreviation"
+        },
+        "conference": {
+          "type": "string",
+          "enum": ["East", "West"],
+          "description": "Eastern or Western Conference"
+        },
+        "division": {
+          "type": "string",
+          "enum": ["Atlantic", "Central", "Southeast", "Northwest", "Pacific", "Southwest"],
+          "description": "One of six NBA divisions"
+        }
+      },
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo", "mascot_image",
+            "primary_color", "secondary_color", "colors",
+            "roster", "players", "contracts", "salaries", "cap_sheet",
+            "execute", "apply", "commit", "mutate", "write", "persist",
+            "save", "delete", "update", "submit", "auto_execute", "auto_approve",
+            "current_roster", "live_salaries", "latest_data", "live_data",
+            "current_salaries", "real_time_data"
+          ]
+        },
+        "description": "Forbidden field names: logos, colors, roster/player/contract/salary data, execution verbs, live/current hints"
+      }
+    }
+  },
+  "propertyNames": {
+    "not": {
+      "enum": [
+        "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo", "mascot_image",
+        "primary_color", "secondary_color", "colors",
+        "roster", "players", "contracts", "salaries", "cap_sheet",
+        "execute", "apply", "commit", "mutate", "write", "persist",
+        "save", "delete", "update", "submit", "auto_execute", "auto_approve",
+        "current_roster", "live_salaries", "latest_data", "live_data",
+        "current_salaries", "real_time_data"
+      ]
+    },
+    "description": "Forbidden field names at top level"
+  }
+}
