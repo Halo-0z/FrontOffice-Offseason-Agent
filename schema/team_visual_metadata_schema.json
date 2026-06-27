@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://frontoffice-offseason-agent/schemas/team_visual_metadata_schema.json",
+  "title": "Team Visual Metadata Schema (M10-C2)",
+  "description": "Schema for normalized/team_visual_metadata.json in curated real NBA snapshots. Contains non-official UI accent colors and badge style hints for 30 teams. These are NOT official NBA or team colors, NOT brand colors, NOT Pantone specifications, and do not imply NBA or team endorsement. Intended for abbreviation badge and neutral badge UI differentiation only. No logos, no official branding.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "visual_metadata",
+    "source_name",
+    "as_of_date",
+    "manual_review_required",
+    "no_official_branding"
+  ],
+  "properties": {
+    "visual_metadata": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "items": { "$ref": "#/$defs/team_visual" },
+      "description": "Exactly 30 team visual metadata entries"
+    },
+    "source_name": {
+      "type": "string",
+      "const": "manual non-official UI accent palette",
+      "description": "Must explicitly state this is a manual non-official palette"
+    },
+    "as_of_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Date this palette was defined"
+    },
+    "manual_review_required": {
+      "type": "boolean",
+      "const": true,
+      "description": "All curated real data requires manual review"
+    },
+    "no_official_branding": {
+      "type": "boolean",
+      "const": true,
+      "description": "Explicit flag that this data does NOT contain official branding, official colors, or imply NBA/team endorsement"
+    }
+  },
+  "$defs": {
+    "team_visual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "team_id",
+        "abbreviation",
+        "accent_color",
+        "secondary_accent_color",
+        "badge_style",
+        "source_name",
+        "as_of_date",
+        "manual_review_required",
+        "no_official_branding"
+      ],
+      "properties": {
+        "team_id": {
+          "type": "string",
+          "pattern": "^nba-[A-Z]{3}$",
+          "description": "Team ID matching normalized/teams.json"
+        },
+        "abbreviation": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "Three-letter team abbreviation matching teams.json"
+        },
+        "accent_color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Primary non-official UI accent color in #RRGGBB hex format. NOT an official brand color."
+        },
+        "secondary_accent_color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Secondary non-official UI accent color in #RRGGBB hex format. NOT an official brand color."
+        },
+        "badge_style": {
+          "type": "string",
+          "enum": ["abbreviation_badge", "neutral_badge", "conference_badge"],
+          "description": "Badge rendering style hint for UI"
+        },
+        "source_name": {
+          "type": "string",
+          "const": "manual non-official UI accent palette",
+          "description": "Must explicitly state this is a manual non-official palette"
+        },
+        "as_of_date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "manual_review_required": {
+          "type": "boolean",
+          "const": true
+        },
+        "no_official_branding": {
+          "type": "boolean",
+          "const": true,
+          "description": "Per-entry flag confirming no official branding is implied"
+        }
+      },
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo", "mascot_image",
+            "official_branding", "official_colors", "brand_colors", "pantone", "brand_guidelines",
+            "primary_color", "secondary_color", "brand_color", "official_color",
+            "roster", "players", "contracts", "salaries", "cap_sheet",
+            "execute", "apply", "commit", "mutate", "write", "persist",
+            "save", "delete", "update", "submit", "auto_execute", "auto_approve",
+            "current_roster", "live_salaries", "latest_data", "live_data",
+            "current_salaries", "real_time_data"
+          ]
+        },
+        "description": "Forbidden field names: logos, official branding/colors/Pantone, roster data, execution verbs, live/current hints"
+      }
+    }
+  },
+  "propertyNames": {
+    "not": {
+      "enum": [
+        "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo", "mascot_image",
+        "official_branding", "official_colors", "brand_colors", "pantone", "brand_guidelines",
+        "primary_color", "secondary_color", "brand_color", "official_color",
+        "roster", "players", "contracts", "salaries", "cap_sheet",
+        "execute", "apply", "commit", "mutate", "write", "persist",
+        "save", "delete", "update", "submit", "auto_execute", "auto_approve",
+        "current_roster", "live_salaries", "latest_data", "live_data",
+        "current_salaries", "real_time_data"
+      ]
+    },
+    "description": "Forbidden field names at top level"
+  }
+}

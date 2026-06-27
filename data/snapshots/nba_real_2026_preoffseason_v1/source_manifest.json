@@ -1,44 +1,52 @@
 {
   "snapshot_id": "nba_real_2026_preoffseason_v1",
-  "schema_version": "m10-b-v1",
+  "schema_version": "m10-c2-v1",
   "season": "2025-2026",
   "snapshot_type": "curated_real",
   "as_of_date": "2026-06-25",
   "generated_at": "2026-06-27T00:00:00Z",
-  "source_name": "NBA.com official public team pages",
+  "source_name": "NBA.com official public team pages; manual non-official UI accent palette",
   "source_url": "https://www.nba.com/teams",
   "source_reference": null,
-  "license_notes": "Team identity data (names, abbreviations, conference/division alignment) is publicly available factual information for non-commercial demonstration. No logos, player data, contracts, or salaries included. Third-party salary data requires separate licensing.",
-  "freshness_label": "Pre-offseason team list (as of 2026-06-25)",
+  "license_notes": "Team identity data (names, abbreviations, conference/division alignment) is publicly available factual information for non-commercial demonstration. Visual metadata uses non-official UI accent colors only — these are NOT official NBA or team brand colors, NOT Pantone specifications, and do NOT imply NBA or team endorsement. No logos, player data, contracts, or salaries included. Third-party salary data requires separate licensing.",
+  "freshness_label": "Pre-offseason team list + non-official UI accent colors (as of 2026-06-25)",
   "freshness_level": "frozen",
   "freshness_policy": "Static curated snapshot. No auto-refresh. Does not satisfy live eligibility prerequisites (no provider authorization beyond public team pages, no auto-refresh, no real-time timestamp). This is not live/current/latest data.",
   "live_eligible": false,
   "stale_after_date": null,
-  "data_freshness_warning": "This snapshot contains 30 NBA team identity records (team_id, city, name, abbreviation, conference, division) as of 2026-06-25. It does not contain rosters, players, contracts, salaries, cap sheets, or logos. It is not live data.",
+  "data_freshness_warning": "This snapshot contains 30 NBA team identity records (team_id, city, name, abbreviation, conference, division) and non-official UI accent visual metadata for abbreviation badges as of 2026-06-25. Accent colors are manual UI differentiation colors only — NOT official team or NBA colors. It does not contain rosters, players, contracts, salaries, cap sheets, or logos. It is not live data.",
   "limitations": [
-    "Teams metadata only",
+    "Teams metadata and non-official UI accent visual metadata only",
     "No roster, player, contract, salary, or cap data",
-    "No team logos, colors, or visual assets",
+    "Visual metadata uses non-official UI accent colors for badge differentiation",
+    "No team logos, official branding, official colors, Pantone specifications, or brand guidelines are included",
+    "No official NBA or team endorsement is implied by the visual metadata",
     "Manual review required",
     "Not live data; does not reflect transactions after 2026-06-25"
   ],
-  "data_categories": ["teams"],
+  "data_categories": ["teams", "team_visual_metadata"],
   "per_file_sources": {
     "normalized/teams.json": {
       "source_name": "NBA.com official public team pages",
       "source_url": "https://www.nba.com/teams",
       "as_of_date": "2026-06-25"
+    },
+    "normalized/team_visual_metadata.json": {
+      "source_name": "manual non-official UI accent palette",
+      "source_url": null,
+      "as_of_date": "2026-06-25"
     }
   },
-  "allowed_usage": "Non-commercial demonstration and internal review. Team identity data only. Not for use as official NBA data source. Preview-only system; no execution of trades or signings.",
-  "redistribution_notes": "Team names, abbreviations, conference/division alignment are factual NBA organizational structure. No NBA logos, official fonts, or branded visual assets are included in this snapshot. Future data additions (rosters, contracts, salaries) must comply with individual source licenses.",
+  "allowed_usage": "Non-commercial demonstration and internal review. Team identity data and non-official UI accent colors only. Accent colors are for UI badge differentiation and are not official brand colors. Not for use as official NBA data source. Preview-only system; no execution of trades or signings.",
+  "redistribution_notes": "Team names, abbreviations, conference/division alignment are factual NBA organizational structure. Non-official UI accent colors are manually chosen palette values for UI differentiation — they are NOT official team or NBA colors, NOT Pantone specifications, and do NOT convey endorsement. No NBA logos, official fonts, or branded visual assets are included in this snapshot. Future data additions (rosters, contracts, salaries) must comply with individual source licenses.",
   "file_hashes": {
-    "normalized/teams.json": "sha256:5b1e388bb2b7506832e7fbb0a06e105b9478d4a5caea9fe9514032bd22dc5fbb"
+    "normalized/teams.json": "sha256:5b1e388bb2b7506832e7fbb0a06e105b9478d4a5caea9fe9514032bd22dc5fbb",
+    "normalized/team_visual_metadata.json": "sha256:96274923a688fd05b2c1092487767d462620036dd6605abc0d3d800d6fb3bb8c"
   },
-  "created_by": "m10-c1-team-seed",
+  "created_by": "m10-c2-visual-metadata",
   "validation_status": "provisional",
   "replaces_snapshot_id": null,
-  "reviewed_by": "m10-c1-gate",
+  "reviewed_by": "m10-c2-gate",
   "review_date": "2026-06-27",
   "manual_review_required": true
 }

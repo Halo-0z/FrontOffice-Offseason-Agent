@@ -123,7 +123,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["teams", "players", "rosters", "contracts", "cap_config", "cap_sheets", "free_agents", "draft_assets", "evidence_notes"]
+        "enum": ["teams", "team_visual_metadata", "players", "rosters", "contracts", "cap_config", "cap_sheets", "free_agents", "draft_assets", "evidence_notes"]
       },
       "uniqueItems": true,
       "description": "Data categories included in this snapshot; may be empty for placeholder fixtures before data is loaded"
