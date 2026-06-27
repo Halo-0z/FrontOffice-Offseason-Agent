@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://frontoffice-offseason-agent/schemas/real_snapshot_manifest_schema.json",
+  "title": "Real Snapshot Manifest Schema",
+  "description": "Schema for manifest.json in curated real NBA snapshots. Extends the legacy manifest with snapshot_mode and manual_review_required fields while preserving backward compatibility. Must not contain live/realtime/logo fields or execution verbs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "snapshot_id",
+    "snapshot_type",
+    "season",
+    "source_name",
+    "as_of_date",
+    "generated_at",
+    "sample_data",
+    "manual_review_required",
+    "teams",
+    "limitations"
+  ],
+  "properties": {
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9_-]+$",
+      "description": "Unique snapshot identifier matching the directory name"
+    },
+    "snapshot_type": {
+      "type": "string",
+      "enum": ["curated_real", "demo", "historical_source_backed", "test_fixture"],
+      "description": "Snapshot type. Must NOT be 'live' or 'realtime'."
+    },
+    "season": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[0-9]{4}-[0-9]{4}$",
+      "description": "Season identifier"
+    },
+    "source_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Primary source name"
+    },
+    "source_url": {
+      "type": ["string", "null"],
+      "description": "Source URL if available"
+    },
+    "source_pack_version": {
+      "type": ["string", "null"],
+      "description": "Source pack version tag for traceability"
+    },
+    "as_of_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Data cutoff date"
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ISO 8601 generation timestamp"
+    },
+    "sample_data": {
+      "type": "boolean",
+      "description": "Whether this is sample/demo data. Real snapshots may be false but still require manual review."
+    },
+    "manual_review_required": {
+      "type": "boolean",
+      "const": true,
+      "description": "All curated real snapshots require manual review per project conventions"
+    },
+    "teams": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "pattern": "^nba-[A-Z]{3}$" },
+      "uniqueItems": true,
+      "description": "List of team IDs covered by this snapshot, e.g. nba-GSW; may be empty for placeholder fixtures before data is loaded"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable description of this snapshot"
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "description": "Data limitations and caveats"
+    }
+  },
+  "propertyNames": {
+    "not": {
+      "enum": [
+        "execute", "apply", "commit", "mutate", "write", "persist",
+        "save", "delete", "update", "submit", "auto_execute", "auto_approve",
+        "current_roster", "live_salaries", "latest_data", "live_data",
+        "current_salaries", "real_time_data",
+        "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo", "mascot_image"
+      ]
+    },
+    "description": "Forbidden field names: execution verbs, live/current hints, and logo asset references"
+  }
+}

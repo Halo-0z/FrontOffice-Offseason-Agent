@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://frontoffice-offseason-agent/schemas/source_manifest_schema.json",
+  "title": "Source Manifest Schema",
+  "description": "Schema for source_manifest.json in curated real NBA snapshots. Defines source metadata, freshness governance, licensing, and validation tracking. Must not contain any execution, mutation, live-data, or logo-branding fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "snapshot_id",
+    "schema_version",
+    "season",
+    "snapshot_type",
+    "as_of_date",
+    "generated_at",
+    "source_name",
+    "license_notes",
+    "freshness_label",
+    "freshness_level",
+    "freshness_policy",
+    "live_eligible",
+    "stale_after_date",
+    "data_freshness_warning",
+    "limitations",
+    "data_categories",
+    "per_file_sources",
+    "allowed_usage",
+    "redistribution_notes",
+    "file_hashes",
+    "created_by",
+    "validation_status",
+    "reviewed_by",
+    "review_date",
+    "manual_review_required"
+  ],
+  "properties": {
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9_-]+$",
+      "description": "Unique snapshot identifier, e.g. nba_real_2026_preoffseason_v1"
+    },
+    "schema_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Source manifest schema version, e.g. m10-b-v1"
+    },
+    "season": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[0-9]{4}-[0-9]{4}$",
+      "description": "Season identifier, e.g. 2025-2026"
+    },
+    "snapshot_type": {
+      "type": "string",
+      "enum": ["curated_real", "demo", "historical_source_backed", "test_fixture"],
+      "description": "Snapshot type classification. Must NOT be 'live' or 'realtime'."
+    },
+    "as_of_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Data cutoff date in YYYY-MM-DD format"
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ISO 8601 timestamp when snapshot was generated"
+    },
+    "source_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Primary data source name, e.g. Spotrac 2025-26 contract/cap table"
+    },
+    "source_url": {
+      "type": ["string", "null"],
+      "description": "Source URL if publicly available, otherwise null"
+    },
+    "source_reference": {
+      "type": ["string", "null"],
+      "description": "Source reference (publication name, page title) when no direct URL is available"
+    },
+    "license_notes": {
+      "type": "string",
+      "minLength": 1,
+      "description": "License and usage terms for this snapshot"
+    },
+    "freshness_label": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable freshness label, e.g. Pre-offseason freeze (as of 2026-06-25)"
+    },
+    "freshness_level": {
+      "type": "string",
+      "enum": ["frozen", "stale", "active_snapshot", "archived"],
+      "description": "Freshness classification. 'live' is explicitly forbidden."
+    },
+    "freshness_policy": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Explanation of why this snapshot is not live/current and whether it satisfies the four live prerequisites (authorization, timestamp, auto-refresh, freshness policy)"
+    },
+    "live_eligible": {
+      "type": "boolean",
+      "const": false,
+      "description": "Whether this snapshot is eligible to be called live/current. Must be false in M10."
+    },
+    "stale_after_date": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Date after which UI must show an additional stale warning; null if no explicit expiration"
+    },
+    "data_freshness_warning": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Warning text directly consumable by UI, intelligence_summary, and agent_trace"
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "description": "List of data limitations and caveats"
+    },
+    "data_categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["teams", "players", "rosters", "contracts", "cap_config", "cap_sheets", "free_agents", "draft_assets", "evidence_notes"]
+      },
+      "uniqueItems": true,
+      "description": "Data categories included in this snapshot; may be empty for placeholder fixtures before data is loaded"
+    },
+    "per_file_sources": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_name", "as_of_date"],
+        "properties": {
+          "source_name": { "type": "string", "minLength": 1 },
+          "source_url": { "type": ["string", "null"] },
+          "as_of_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
+        }
+      },
+      "description": "Per-file source tracking because teams/rosters/contracts/cap_sheets may come from different sources; may be empty for placeholder fixtures"
+    },
+    "allowed_usage": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Allowed usage terms, e.g. non-commercial demonstration, internal review"
+    },
+    "redistribution_notes": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Redistribution restrictions and notes, important for GitHub publication"
+    },
+    "file_hashes": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 },
+      "description": "SHA-256 hashes for each normalized file to detect tampering; may be empty for placeholder fixtures"
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Creator identifier, e.g. m10-curated-import-v1"
+    },
+    "validation_status": {
+      "type": "string",
+      "enum": ["provisional", "partially_validated", "validated"],
+      "description": "Validation status of this snapshot"
+    },
+    "replaces_snapshot_id": {
+      "type": ["string", "null"],
+      "description": "Previous snapshot_id this version replaces, or null if first version"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Reviewer identifier for auditability of validation_status"
+    },
+    "review_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Date when review was performed"
+    },
+    "manual_review_required": {
+      "type": "boolean",
+      "description": "Whether manual review is required; must be consistent with manifest.json"
+    }
+  },
+  "propertyNames": {
+    "not": {
+      "enum": [
+        "execute", "apply", "commit", "mutate", "write", "persist",
+        "save", "delete", "update", "submit", "auto_execute", "auto_approve",
+        "current_roster", "live_salaries", "latest_data", "live_data",
+        "current_salaries", "real_time_data",
+        "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo", "mascot_image"
+      ]
+    },
+    "description": "Forbidden field names: execution verbs, live/current hints, and logo asset references"
+  }
+}

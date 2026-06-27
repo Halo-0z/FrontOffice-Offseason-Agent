@@ -1,0 +1,21 @@
+{
+  "snapshot_id": "nba_real_2026_preoffseason_v1",
+  "snapshot_type": "curated_real",
+  "season": "2025-2026",
+  "source_name": "M10-B placeholder fixture (not real NBA data)",
+  "source_url": null,
+  "source_pack_version": null,
+  "as_of_date": "2026-06-25",
+  "generated_at": "2026-06-27T00:00:00Z",
+  "sample_data": false,
+  "manual_review_required": true,
+  "teams": [],
+  "description": "Placeholder real snapshot for M10-B schema validation. No real NBA data, players, contracts, or rosters are included.",
+  "limitations": [
+    "Placeholder fixture for schema validation only",
+    "Not real NBA data",
+    "No teams, players, contracts, salaries, or rosters populated",
+    "Do not use for demo or production",
+    "manual_review_required: all real data imports require manual review"
+  ]
+}
