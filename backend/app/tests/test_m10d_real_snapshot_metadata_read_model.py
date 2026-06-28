@@ -150,7 +150,7 @@ class TestServicePositive:
         assert real_metadata["live_eligible"] is False
 
     def test_as_of_date_present(self, real_metadata: Dict[str, Any]) -> None:
-        assert real_metadata["as_of_date"] == "2026-06-25"
+        assert real_metadata["as_of_date"] == "2026-06-28"
 
     def test_freshness_label_present(self, real_metadata: Dict[str, Any]) -> None:
         assert real_metadata["freshness_label"]

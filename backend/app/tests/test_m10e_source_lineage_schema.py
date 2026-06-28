@@ -494,31 +494,69 @@ class TestNegativeValidation:
 
 
 # --------------------------------------------------------------------------- #
-# Regression / no-data-written invariants
+# Regression / F4-B tiny pilot guard invariants
 # --------------------------------------------------------------------------- #
 
 
-class TestRegressionNoRealDataWritten:
-    """M10-E2 is schema + docs + tests only. No real player/roster/contract/salary
-    data files may exist in the real snapshot directory."""
+class TestRegressionTinyPilotGuard:
+    """M10-F4-B lands a 4-player/2-team tiny pilot. Guard that only exactly
+    the approved pilot files exist with correct scope; forbidden categories
+    (contracts/salaries/cap/injuries/rumors/live) remain absent."""
 
-    def test_normalized_dir_contains_only_existing_files(self):
-        expected = {"teams.json", "team_visual_metadata.json"}
+    EXPECTED_PILOT_PLAYER_IDS = {
+        "nba-shai-gilgeous-alexander",
+        "nba-chet-holmgren",
+        "nba-nikola-jokic",
+        "nba-jamal-murray",
+    }
+
+    EXPECTED_PILOT_TEAM_IDS = {"nba-OKC", "nba-DEN"}
+
+    def test_normalized_dir_contains_only_expected_files(self):
+        expected = {
+            "teams.json", "team_visual_metadata.json",
+            "player_identities.json", "roster_memberships.json",
+        }
         actual = {p.name for p in REAL_SNAPSHOT_NORMALIZED_DIR.iterdir() if p.is_file()}
         assert actual == expected, (
             f"Real snapshot normalized/ file set changed. "
             f"Expected {sorted(expected)}, got {sorted(actual)}. "
-            f"M10-E2 must not add player_identities.json, roster_memberships.json, "
-            f"contracts, salaries, or cap files."
+            f"F4-B adds exactly player_identities.json and roster_memberships.json "
+            f"(tiny pilot); contracts, salaries, cap, injury, rumor files remain forbidden."
         )
 
-    def test_no_player_identities_file(self):
+    def test_player_identities_file_exists_as_tiny_pilot(self):
         target = REAL_SNAPSHOT_NORMALIZED_DIR / "player_identities.json"
-        assert not target.exists(), "player_identities.json must NOT exist in M10-E2."
+        assert target.exists(), "player_identities.json must exist after M10-F4-B tiny pilot."
+        doc = json.loads(target.read_text("utf-8"))
+        assert doc.get("snapshot_id") == "nba_real_2026_preoffseason_v1"
+        assert doc.get("live_eligible") is False
+        assert doc.get("manual_review_required") is True
+        players = doc.get("players", [])
+        assert len(players) == 4, f"Expected 4 tiny pilot players, got {len(players)}"
+        player_ids = {p.get("player_id") for p in players}
+        assert player_ids == self.EXPECTED_PILOT_PLAYER_IDS
+        for p in players:
+            assert p.get("live_eligible") is False
+            assert p.get("manual_review_required") is True
 
-    def test_no_roster_memberships_file(self):
+    def test_roster_memberships_file_exists_as_tiny_pilot(self):
         target = REAL_SNAPSHOT_NORMALIZED_DIR / "roster_memberships.json"
-        assert not target.exists(), "roster_memberships.json must NOT exist in M10-E2."
+        assert target.exists(), "roster_memberships.json must exist after M10-F4-B tiny pilot."
+        doc = json.loads(target.read_text("utf-8"))
+        assert doc.get("snapshot_id") == "nba_real_2026_preoffseason_v1"
+        assert doc.get("live_eligible") is False
+        assert doc.get("manual_review_required") is True
+        mems = doc.get("roster_memberships", [])
+        assert len(mems) == 4, f"Expected 4 tiny pilot memberships, got {len(mems)}"
+        player_ids = {m.get("player_id") for m in mems}
+        team_ids = {m.get("team_id") for m in mems}
+        assert player_ids == self.EXPECTED_PILOT_PLAYER_IDS
+        assert team_ids == self.EXPECTED_PILOT_TEAM_IDS
+        for m in mems:
+            assert m.get("roster_status") == "standard"
+            assert m.get("live_eligible") is False
+            assert m.get("manual_review_required") is True
 
     @pytest.mark.parametrize("forbidden_name", [
         "contracts.json",
@@ -529,12 +567,25 @@ class TestRegressionNoRealDataWritten:
         "rosters.json",
         "injuries.json",
         "rumors.json",
+        "scouting_opinions.json",
+        "live_status.json",
     ])
     def test_no_contract_salary_cap_injury_rumor_files(self, forbidden_name: str):
         target = REAL_SNAPSHOT_NORMALIZED_DIR / forbidden_name
         assert not target.exists(), (
-            f"{forbidden_name} must NOT exist under real snapshot normalized/ in M10-E2."
+            f"{forbidden_name} must NOT exist under real snapshot normalized/ in M10-F4-B."
         )
+
+    def test_source_manifest_data_categories_correct(self):
+        sm = json.loads((REAL_SNAPSHOT_DIR / "source_manifest.json").read_text("utf-8"))
+        cats = set(sm.get("data_categories", []))
+        assert {"teams", "team_visual_metadata", "player_identities", "roster_memberships"} <= cats
+        forbidden_cats = {"contracts", "salaries", "cap_sheets", "injuries", "rumors", "scouting", "live_status"}
+        assert not (cats & forbidden_cats), f"Forbidden categories present: {cats & forbidden_cats}"
+        assert sm.get("live_eligible") is False
+        assert sm.get("manual_review_required") is True
+        assert sm.get("stale_after_date") == "2026-07-12"
+        assert sm.get("as_of_date") == "2026-06-28"
 
     def test_no_real_snapshot_top_level_data_files_added(self):
         expected = {"manifest.json", "source_manifest.json", "normalized"}
@@ -542,5 +593,5 @@ class TestRegressionNoRealDataWritten:
         unexpected = actual - expected
         assert not unexpected, (
             f"Unexpected files/dirs in real snapshot root: {sorted(unexpected)}. "
-            f"M10-E2 must not add data files to the real snapshot."
+            f"M10-F4-B must not add additional top-level files."
         )

@@ -867,20 +867,70 @@ class TestIsolationRegression:
     """Confirm F2 did not write into data/snapshots, frontend, or wire into
     disallowed consumers."""
 
-    def test_real_snapshot_normalized_still_only_has_teams_and_visual(self) -> None:
+    def test_real_snapshot_normalized_has_expected_files(self) -> None:
         normalized = REAL_SNAPSHOT_DIR / "normalized"
         assert normalized.is_dir(), f"real snapshot normalized/ missing at {normalized}"
         files = sorted(p.name for p in normalized.iterdir())
-        assert files == ["team_visual_metadata.json", "teams.json"], (
-            f"Expected only teams.json + team_visual_metadata.json under real "
-            f"normalized/, found: {files}"
+        expected = ["player_identities.json", "roster_memberships.json",
+                    "team_visual_metadata.json", "teams.json"]
+        assert files == expected, (
+            f"Expected teams.json + team_visual_metadata.json + player_identities.json + "
+            f"roster_memberships.json under real normalized/, found: {files}"
         )
 
-    def test_no_player_identities_json_in_real_snapshot(self) -> None:
-        assert not (REAL_SNAPSHOT_DIR / PLAYER_IDENTITIES_REL).exists()
+    def test_player_identities_json_exists_with_4_tiny_pilot_players(self) -> None:
+        p = REAL_SNAPSHOT_DIR / PLAYER_IDENTITIES_REL
+        assert p.exists(), f"{PLAYER_IDENTITIES_REL} must exist after F4-B tiny pilot"
+        doc = json.loads(p.read_text("utf-8"))
+        assert doc.get("snapshot_id") == "nba_real_2026_preoffseason_v1"
+        assert doc.get("live_eligible") is False
+        assert doc.get("manual_review_required") is True
+        players = doc.get("players", [])
+        assert len(players) == 4, f"Expected exactly 4 tiny pilot players, got {len(players)}"
+        player_ids = {pl.get("player_id") for pl in players}
+        expected_ids = {
+            "nba-shai-gilgeous-alexander", "nba-chet-holmgren",
+            "nba-nikola-jokic", "nba-jamal-murray",
+        }
+        assert player_ids == expected_ids, f"Unexpected player IDs: {player_ids}"
+        for pl in players:
+            assert pl.get("live_eligible") is False
+            assert pl.get("manual_review_required") is True
+            assert pl.get("birthdate") is None
+            assert pl.get("height") is None
+            assert pl.get("weight") is None
+            assert pl.get("source_type") == "manual_curated"
+            assert pl.get("snapshot_id") == "nba_real_2026_preoffseason_v1"
+        assert _find_forbidden_key(doc) is None, (
+            f"Forbidden key found in player_identities.json: {_find_forbidden_key(doc)}"
+        )
 
-    def test_no_roster_memberships_json_in_real_snapshot(self) -> None:
-        assert not (REAL_SNAPSHOT_DIR / ROSTER_MEMBERSHIPS_REL).exists()
+    def test_roster_memberships_json_exists_with_4_tiny_pilot_memberships(self) -> None:
+        p = REAL_SNAPSHOT_DIR / ROSTER_MEMBERSHIPS_REL
+        assert p.exists(), f"{ROSTER_MEMBERSHIPS_REL} must exist after F4-B tiny pilot"
+        doc = json.loads(p.read_text("utf-8"))
+        assert doc.get("snapshot_id") == "nba_real_2026_preoffseason_v1"
+        assert doc.get("live_eligible") is False
+        assert doc.get("manual_review_required") is True
+        mems = doc.get("roster_memberships", [])
+        assert len(mems) == 4, f"Expected exactly 4 tiny pilot memberships, got {len(mems)}"
+        team_ids = {m.get("team_id") for m in mems}
+        assert team_ids == {"nba-OKC", "nba-DEN"}, f"Unexpected team IDs: {team_ids}"
+        player_ids = {m.get("player_id") for m in mems}
+        expected_pids = {
+            "nba-shai-gilgeous-alexander", "nba-chet-holmgren",
+            "nba-nikola-jokic", "nba-jamal-murray",
+        }
+        assert player_ids == expected_pids, f"Unexpected player IDs in memberships: {player_ids}"
+        for m in mems:
+            assert m.get("live_eligible") is False
+            assert m.get("manual_review_required") is True
+            assert m.get("roster_status") == "standard"
+            assert m.get("source_type") == "manual_curated"
+            assert m.get("snapshot_id") == "nba_real_2026_preoffseason_v1"
+        assert _find_forbidden_key(doc) is None, (
+            f"Forbidden key found in roster_memberships.json: {_find_forbidden_key(doc)}"
+        )
 
     def test_no_contracts_salaries_cap_files_anywhere_under_real_snapshot(self) -> None:
         forbidden = ["contracts.json", "salaries.json", "cap_sheet.json",
@@ -983,3 +1033,203 @@ class TestIsolationRegression:
             # that are copied into runtime data; our test builder uses only
             # "Test Player Alpha/Beta" names. The strings are allowed here in
             # this test file's blacklist only (negative audit context).
+
+
+class TestTinyPilotSmoke:
+    """Load the real tiny pilot snapshot via the read model service and
+    validate all hard guarantees: schema, hashes, xrefs, forbidden fields,
+    governance flags, and pilot scope bounds (4 players / 4 memberships)."""
+
+    def test_load_real_tiny_pilot_snapshot_succeeds(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        assert md.snapshot_id == "nba_real_2026_preoffseason_v1"
+        assert md.snapshot_mode == "real_snapshot"
+        assert md.live_eligible is False
+        assert md.manual_review_required is True
+        assert md.no_official_branding is True
+
+    def test_tiny_pilot_returns_exactly_4_players(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        assert len(md.players) == 4
+        player_ids = {p.player_id for p in md.players}
+        expected = {
+            "nba-shai-gilgeous-alexander",
+            "nba-chet-holmgren",
+            "nba-nikola-jokic",
+            "nba-jamal-murray",
+        }
+        assert player_ids == expected
+
+    def test_tiny_pilot_player_fields_correct(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        players_by_id = {p.player_id: p for p in md.players}
+        shai = players_by_id["nba-shai-gilgeous-alexander"]
+        assert shai.display_name == "Shai Gilgeous-Alexander"
+        assert shai.first_name == "Shai"
+        assert shai.last_name == "Gilgeous-Alexander"
+        assert shai.position == "G"
+        assert shai.birthdate is None
+        assert shai.height is None
+        assert shai.weight is None
+        assert shai.source_type == "manual_curated"
+
+        chet = players_by_id["nba-chet-holmgren"]
+        assert chet.display_name == "Chet Holmgren"
+        assert chet.first_name == "Chet"
+        assert chet.last_name == "Holmgren"
+        assert chet.position == "FC"
+        assert chet.birthdate is None
+        assert chet.height is None
+        assert chet.weight is None
+        assert chet.source_type == "manual_curated"
+
+        jokic = players_by_id["nba-nikola-jokic"]
+        assert jokic.display_name == "Nikola Jokic"
+        assert jokic.first_name == "Nikola"
+        assert jokic.last_name == "Jokic"
+        assert jokic.position == "C"
+        assert jokic.birthdate is None
+        assert jokic.height is None
+        assert jokic.weight is None
+        assert jokic.source_type == "manual_curated"
+
+        murray = players_by_id["nba-jamal-murray"]
+        assert murray.display_name == "Jamal Murray"
+        assert murray.first_name == "Jamal"
+        assert murray.last_name == "Murray"
+        assert murray.position == "G"
+        assert murray.birthdate is None
+        assert murray.height is None
+        assert murray.weight is None
+        assert murray.source_type == "manual_curated"
+
+    def test_tiny_pilot_returns_exactly_4_roster_memberships(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        assert len(md.roster_memberships) == 4
+        team_ids = {m.team_id for m in md.roster_memberships}
+        assert team_ids == {"nba-OKC", "nba-DEN"}
+        player_ids = {m.player_id for m in md.roster_memberships}
+        expected_pids = {
+            "nba-shai-gilgeous-alexander",
+            "nba-chet-holmgren",
+            "nba-nikola-jokic",
+            "nba-jamal-murray",
+        }
+        assert player_ids == expected_pids
+
+    def test_tiny_pilot_membership_fields_correct(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        mems_by_pid = {m.player_id: m for m in md.roster_memberships}
+        for pid in ("nba-shai-gilgeous-alexander", "nba-chet-holmgren",
+                    "nba-nikola-jokic", "nba-jamal-murray"):
+            m = mems_by_pid[pid]
+            assert m.roster_status == "standard"
+            assert m.source_type == "manual_curated"
+        assert mems_by_pid["nba-shai-gilgeous-alexander"].team_id == "nba-OKC"
+        assert mems_by_pid["nba-chet-holmgren"].team_id == "nba-OKC"
+        assert mems_by_pid["nba-nikola-jokic"].team_id == "nba-DEN"
+        assert mems_by_pid["nba-jamal-murray"].team_id == "nba-DEN"
+
+    def test_tiny_pilot_xrefs_are_valid(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        player_ids = {p.player_id for p in md.players}
+        for m in md.roster_memberships:
+            assert m.player_id in player_ids, (
+                f"membership player_id {m.player_id} not found in players"
+            )
+        teams_doc = json.loads((REAL_SNAPSHOT_DIR / "normalized" / "teams.json").read_text("utf-8"))
+        valid_team_ids = {t["team_id"] for t in teams_doc["teams"]}
+        for m in md.roster_memberships:
+            assert m.team_id in valid_team_ids, (
+                f"membership team_id {m.team_id} not found in teams.json"
+            )
+
+    def test_tiny_pilot_response_contains_no_forbidden_fields(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        d = md.to_dict()
+        found = _find_forbidden_key(d)
+        assert found is None, f"Forbidden key found in pilot response: {found}"
+
+    def test_tiny_pilot_no_contracts_salaries_cap_injury_files(self) -> None:
+        forbidden_names = [
+            "contracts.json", "salaries.json", "cap_sheet.json", "cap_sheets.json",
+            "injuries.json", "rumors.json", "scouting_opinions.json",
+        ]
+        for name in forbidden_names:
+            for p in REAL_SNAPSHOT_DIR.rglob(name):
+                pytest.fail(f"Forbidden file found in pilot snapshot: {p}")
+
+    def test_tiny_pilot_hash_validation_is_enforced(self) -> None:
+        import tempfile
+        import shutil
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            pilot_copy = tmp / "nba_real_2026_preoffseason_v1"
+            pilot_copy.mkdir()
+            (pilot_copy / "normalized").mkdir()
+            for rel in [
+                "manifest.json",
+                "source_manifest.json",
+                "normalized/teams.json",
+                "normalized/team_visual_metadata.json",
+                "normalized/player_identities.json",
+                "normalized/roster_memberships.json",
+            ]:
+                src = REAL_SNAPSHOT_DIR / rel
+                dst = pilot_copy / rel
+                shutil.copy2(src, dst)
+            source_manifest_path = pilot_copy / "source_manifest.json"
+            sm = json.loads(source_manifest_path.read_text("utf-8"))
+            wrong_hash = "sha256:" + "0" * 64
+            sm["file_hashes"][PLAYER_IDENTITIES_REL] = wrong_hash
+            source_manifest_path.write_text(
+                json.dumps(sm, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            with pytest.raises(PlayerRosterHashError):
+                load_player_roster_metadata(
+                    snapshot_mode="real_snapshot",
+                    snapshot_dir=pilot_copy,
+                    reference_date="2026-06-28",
+                )
+
+    def test_tiny_pilot_stale_after_date_enforced(self) -> None:
+        with pytest.raises(PlayerRosterStaleDataError):
+            load_player_roster_metadata(
+                snapshot_mode="real_snapshot",
+                reference_date="2026-08-01",
+            )
+
+    def test_tiny_pilot_source_summary_includes_both_files(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        file_paths = {s.file_path for s in md.source_summary}
+        assert PLAYER_IDENTITIES_REL in file_paths
+        assert ROSTER_MEMBERSHIPS_REL in file_paths
+        for s in md.source_summary:
+            assert s.live_eligible is False
+            assert s.manual_review_required is True
+            assert s.source_type == "manual_curated"

@@ -1,0 +1,145 @@
+{
+  "schema_version": "m10-f4-pilot-v1",
+  "snapshot_id": "nba_real_2026_preoffseason_v1",
+  "as_of_date": "2026-06-28",
+  "generated_at": "2026-06-28T00:00:00Z",
+  "source_name": "Manual curation from NBA.com + team public roster pages",
+  "source_url": null,
+  "source_type": "manual_curated",
+  "manual_review_required": true,
+  "live_eligible": false,
+  "data_freshness_warning": "Frozen as-of pilot source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+  "limitations": [
+    "identity_only",
+    "roster_membership_only",
+    "not_live",
+    "no_contract",
+    "no_salary",
+    "no_cap",
+    "no_injury",
+    "no_depth_chart"
+  ],
+  "players": [
+    {
+      "player_id": "nba-shai-gilgeous-alexander",
+      "display_name": "Shai Gilgeous-Alexander",
+      "first_name": "Shai",
+      "last_name": "Gilgeous-Alexander",
+      "position": "G",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com player page",
+      "source_url": "https://www.nba.com/player/1628983/shai-gilgeous-alexander",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of pilot source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for first pilot."
+      ]
+    },
+    {
+      "player_id": "nba-chet-holmgren",
+      "display_name": "Chet Holmgren",
+      "first_name": "Chet",
+      "last_name": "Holmgren",
+      "position": "FC",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com player page",
+      "source_url": "https://www.nba.com/player/1631096/chet-holmgren",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of pilot source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for first pilot.",
+        "Position conflict: NBA uses Center-Forward while ESPN uses Center; resolved to FC per source conflict policy."
+      ]
+    },
+    {
+      "player_id": "nba-nikola-jokic",
+      "display_name": "Nikola Jokic",
+      "first_name": "Nikola",
+      "last_name": "Jokic",
+      "position": "C",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com player page",
+      "source_url": "https://www.nba.com/player/203999/nikola-jokic",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of pilot source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for first pilot."
+      ]
+    },
+    {
+      "player_id": "nba-jamal-murray",
+      "display_name": "Jamal Murray",
+      "first_name": "Jamal",
+      "last_name": "Murray",
+      "position": "G",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com player page",
+      "source_url": "https://www.nba.com/player/1627750/jamal-murray",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of pilot source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for first pilot."
+      ]
+    }
+  ]
+}

@@ -2,11 +2,11 @@
   "snapshot_id": "nba_real_2026_preoffseason_v1",
   "snapshot_type": "curated_real",
   "season": "2025-2026",
-  "source_name": "NBA.com official public team pages",
+  "source_name": "NBA.com official public team pages; manual curation of 4-player tiny pilot roster",
   "source_url": "https://www.nba.com/teams",
-  "source_pack_version": "m10-c1-v1",
-  "as_of_date": "2026-06-25",
-  "generated_at": "2026-06-27T00:00:00Z",
+  "source_pack_version": "m10-f4-pilot-v1",
+  "as_of_date": "2026-06-28",
+  "generated_at": "2026-06-28T00:00:00Z",
   "sample_data": false,
   "manual_review_required": true,
   "teams": [
@@ -17,12 +17,15 @@
     "nba-OKC", "nba-ORL", "nba-PHI", "nba-PHX", "nba-POR",
     "nba-SAC", "nba-SAS", "nba-TOR", "nba-UTA", "nba-WAS"
   ],
-  "description": "Curated real snapshot containing 30 NBA team identity metadata. Teams only: no rosters, contracts, salaries, cap sheets, or logos.",
+  "description": "Curated real snapshot containing 30 NBA team identity metadata, non-official UI accent colors, and a 4-player/2-team tiny pilot player identity + roster membership dataset. Teams and tiny pilot only: no full rosters, no contracts, salaries, cap sheets, injuries, scouting, or logos.",
   "limitations": [
-    "Teams metadata only",
-    "No roster, player, contract, salary, or cap data",
+    "Teams metadata, non-official UI accent visual metadata, and 4-player tiny pilot identity + roster membership only",
+    "Pilot covers exactly 2 teams (OKC, DEN) and 4 players; not a full roster",
+    "No contract, salary, cap, injury, scouting, or live data",
+    "Birthdate/height/weight intentionally null for pilot players",
     "No team logos or visual assets",
     "Third-party data requiring manual review",
-    "Not live data; does not reflect transactions after as_of_date"
+    "Not live data; does not reflect transactions after as_of_date",
+    "Do not use for trade/signing recommendations"
   ]
 }

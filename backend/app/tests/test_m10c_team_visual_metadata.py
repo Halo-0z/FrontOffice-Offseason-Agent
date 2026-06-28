@@ -252,7 +252,7 @@ class TestPositiveValidation:
     def test_freshness_safety_fields_unchanged(self, source_manifest_doc):
         assert source_manifest_doc["live_eligible"] is False
         assert source_manifest_doc["freshness_level"] == "frozen"
-        assert source_manifest_doc["validation_status"] == "provisional"
+        assert source_manifest_doc["validation_status"] == "partially_validated"
         assert source_manifest_doc["manual_review_required"] is True
 
 

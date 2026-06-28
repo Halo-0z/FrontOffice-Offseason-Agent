@@ -556,25 +556,61 @@ def test_fixture_contains_no_real_nba_player_names(roster_memberships_schema: Di
 
 
 # ---------------------------------------------------------------------------
-# Regression: real snapshot data dir is unchanged.
+# Regression: F4-B tiny pilot guard invariants.
 # ---------------------------------------------------------------------------
+
+EXPECTED_PILOT_PLAYER_IDS_E4 = {
+    "nba-shai-gilgeous-alexander",
+    "nba-chet-holmgren",
+    "nba-nikola-jokic",
+    "nba-jamal-murray",
+}
+
+EXPECTED_PILOT_TEAM_IDS_E4 = {"nba-OKC", "nba-DEN"}
 
 
 def test_real_normalized_dir_contains_only_expected_files() -> None:
     assert REAL_SNAPSHOT_NORMALIZED_DIR.is_dir()
     files = sorted(p.name for p in REAL_SNAPSHOT_NORMALIZED_DIR.iterdir() if p.is_file())
-    assert files == ["team_visual_metadata.json", "teams.json"], (
-        f"M10-E4 regression: normalized dir must contain exactly teams.json and "
-        f"team_visual_metadata.json; got: {files}"
+    assert files == ["player_identities.json", "roster_memberships.json", "team_visual_metadata.json", "teams.json"], (
+        f"M10-F4-B regression: normalized dir must contain teams.json, "
+        f"team_visual_metadata.json, player_identities.json, roster_memberships.json; got: {files}"
     )
 
 
-def test_no_player_identities_json_in_real_snapshot() -> None:
-    assert not (REAL_SNAPSHOT_NORMALIZED_DIR / "player_identities.json").exists()
+def test_player_identities_json_exists_as_tiny_pilot() -> None:
+    target = REAL_SNAPSHOT_NORMALIZED_DIR / "player_identities.json"
+    assert target.exists(), "player_identities.json must exist after M10-F4-B tiny pilot."
+    doc = _load_json(target)
+    assert doc.get("snapshot_id") == "nba_real_2026_preoffseason_v1"
+    assert doc.get("live_eligible") is False
+    assert doc.get("manual_review_required") is True
+    players = doc.get("players", [])
+    assert len(players) == 4, f"Expected 4 tiny pilot players, got {len(players)}"
+    player_ids = {p.get("player_id") for p in players}
+    assert player_ids == EXPECTED_PILOT_PLAYER_IDS_E4
+    for p in players:
+        assert p.get("live_eligible") is False
+        assert p.get("manual_review_required") is True
 
 
-def test_no_roster_memberships_json_in_real_snapshot() -> None:
-    assert not (REAL_SNAPSHOT_NORMALIZED_DIR / "roster_memberships.json").exists()
+def test_roster_memberships_json_exists_as_tiny_pilot() -> None:
+    target = REAL_SNAPSHOT_NORMALIZED_DIR / "roster_memberships.json"
+    assert target.exists(), "roster_memberships.json must exist after M10-F4-B tiny pilot."
+    doc = _load_json(target)
+    assert doc.get("snapshot_id") == "nba_real_2026_preoffseason_v1"
+    assert doc.get("live_eligible") is False
+    assert doc.get("manual_review_required") is True
+    mems = doc.get("roster_memberships", [])
+    assert len(mems) == 4, f"Expected 4 tiny pilot memberships, got {len(mems)}"
+    player_ids = {m.get("player_id") for m in mems}
+    team_ids = {m.get("team_id") for m in mems}
+    assert player_ids == EXPECTED_PILOT_PLAYER_IDS_E4
+    assert team_ids == EXPECTED_PILOT_TEAM_IDS_E4
+    for m in mems:
+        assert m.get("roster_status") == "standard"
+        assert m.get("live_eligible") is False
+        assert m.get("manual_review_required") is True
 
 
 @pytest.mark.parametrize(
@@ -589,11 +625,12 @@ def test_no_roster_memberships_json_in_real_snapshot() -> None:
         "injuries.json",
         "rumors.json",
         "scouting_opinions.json",
+        "live_status.json",
     ],
 )
 def test_no_forbidden_data_files_in_real_snapshot(filename: str) -> None:
     assert not (REAL_SNAPSHOT_NORMALIZED_DIR / filename).exists(), (
-        f"Forbidden data file '{filename}' must not exist in real snapshot normalized/ dir in M10-E4."
+        f"Forbidden data file '{filename}' must not exist in real snapshot normalized/ dir in M10-F4-B."
     )
 
 

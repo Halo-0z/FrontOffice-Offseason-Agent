@@ -1,0 +1,115 @@
+{
+  "schema_version": "m10-f4-pilot-v1",
+  "snapshot_id": "nba_real_2026_preoffseason_v1",
+  "as_of_date": "2026-06-28",
+  "generated_at": "2026-06-28T00:00:00Z",
+  "source_name": "Manual curation from NBA.com + team public roster pages",
+  "source_url": null,
+  "source_type": "manual_curated",
+  "manual_review_required": true,
+  "live_eligible": false,
+  "data_freshness_warning": "Frozen as-of roster membership pilot only; not a live/current roster.",
+  "limitations": [
+    "membership_only",
+    "not_live",
+    "no_contract",
+    "no_salary",
+    "no_cap",
+    "no_injury",
+    "no_depth_chart"
+  ],
+  "roster_memberships": [
+    {
+      "membership_id": "membership-okc-shai-gilgeous-alexander",
+      "team_id": "nba-OKC",
+      "player_id": "nba-shai-gilgeous-alexander",
+      "roster_status": "standard",
+      "source_name": "NBA.com team roster page",
+      "source_url": "https://www.nba.com/thunder/roster",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of roster membership pilot only; not a live/current roster.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "membership_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ]
+    },
+    {
+      "membership_id": "membership-okc-chet-holmgren",
+      "team_id": "nba-OKC",
+      "player_id": "nba-chet-holmgren",
+      "roster_status": "standard",
+      "source_name": "NBA.com team roster page",
+      "source_url": "https://www.nba.com/thunder/roster",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of roster membership pilot only; not a live/current roster.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "membership_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ]
+    },
+    {
+      "membership_id": "membership-den-nikola-jokic",
+      "team_id": "nba-DEN",
+      "player_id": "nba-nikola-jokic",
+      "roster_status": "standard",
+      "source_name": "NBA.com team roster page",
+      "source_url": "https://www.nba.com/nuggets/roster",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of roster membership pilot only; not a live/current roster.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "membership_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ]
+    },
+    {
+      "membership_id": "membership-den-jamal-murray",
+      "team_id": "nba-DEN",
+      "player_id": "nba-jamal-murray",
+      "roster_status": "standard",
+      "source_name": "NBA.com team roster page",
+      "source_url": "https://www.nba.com/nuggets/roster",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of roster membership pilot only; not a live/current roster.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "membership_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ]
+    }
+  ]
+}
