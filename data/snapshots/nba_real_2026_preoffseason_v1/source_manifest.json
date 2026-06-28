@@ -5,24 +5,27 @@
   "snapshot_type": "curated_real",
   "as_of_date": "2026-06-28",
   "generated_at": "2026-06-28T00:00:00Z",
-  "source_name": "NBA.com official public team pages; manual non-official UI accent palette; manual curation of 4-player tiny pilot roster",
+  "source_name": "NBA.com official public team pages; manual non-official UI accent palette; Batch 1 expanded manual curation of 14-player/8-team roster pilot after GPT-5.5 source correction",
   "source_url": "https://www.nba.com/teams",
   "source_reference": null,
-  "license_notes": "Team identity data (names, abbreviations, conference/division alignment) is publicly available factual information for non-commercial demonstration. Visual metadata uses non-official UI accent colors only — these are NOT official NBA or team brand colors, NOT Pantone specifications, and do NOT imply NBA or team endorsement. Tiny pilot player identity and roster membership data (4 players across 2 teams) is manually curated from public NBA.com player/roster pages; birthdate/height/weight intentionally omitted for pilot. No logos, player contracts, salaries, or cap sheets included. Third-party salary data requires separate licensing.",
-  "freshness_label": "Pre-offseason team list + non-official UI accent colors + 4-player tiny pilot roster (as of 2026-06-28)",
+  "license_notes": "Team identity data (names, abbreviations, conference/division alignment) is publicly available factual information for non-commercial demonstration. Visual metadata uses non-official UI accent colors only — these are NOT official NBA or team brand colors, NOT Pantone specifications, and do NOT imply NBA or team endorsement. Player identity and roster membership data (14 players across 8 teams) is manually curated from public NBA.com player/roster pages cross-verified with public news sources; birthdate/height/weight intentionally null. Source correction patch: Darius Garland (CLE) and Jalen Green (HOU) removed after GPT-5.5 review confirmed Garland currently on LAC and Green currently on PHX per NBA.com/ESPN. No replacement players added. No logos, player contracts, salaries, cap sheets, injuries, scouting, rumors, or live data included. Third-party salary data requires separate licensing.",
+  "freshness_label": "Pre-offseason team list + non-official UI accent colors + Batch 1 corrected 14-player/8-team roster pilot (as of 2026-06-28)",
   "freshness_level": "frozen",
-  "freshness_policy": "Static curated snapshot. No auto-refresh. Does not satisfy live eligibility prerequisites (no provider authorization beyond public team pages, no auto-refresh, no real-time timestamp). This is not live/current/latest data. Tiny pilot roster is frozen as-of pilot verification only.",
+  "freshness_policy": "Static curated snapshot. No auto-refresh. Does not satisfy live eligibility prerequisites (no provider authorization beyond public team pages, no auto-refresh, no real-time timestamp). This is not live/current/latest data. Roster data is frozen as-of Batch 1 verification only (post source correction).",
   "live_eligible": false,
   "stale_after_date": "2026-07-12",
-  "data_freshness_warning": "This snapshot contains 30 NBA team identity records, non-official UI accent visual metadata, and a 4-player/2-team tiny pilot player identity + roster membership dataset as of 2026-06-28. Pilot data is identity + roster membership only: no contracts, salaries, cap sheets, injuries, scouting, or live status. Accent colors are manual UI differentiation colors only — NOT official team or NBA colors. It does not contain full rosters, contracts, salaries, cap sheets, or logos. It is not live data; do not use for trade/signing recommendations.",
+  "data_freshness_warning": "This snapshot contains 30 NBA team identity records, non-official UI accent visual metadata, and a 14-player/8-team (OKC:2, DEN:2, BOS:2, NYK:2, CLE:1, MIN:2, HOU:1, IND:2) player identity + roster membership dataset as of 2026-06-28. Data is identity + roster membership only: no contracts, salaries, cap sheets, injuries, scouting, rumors, or live status. Accent colors are manual UI differentiation colors only — NOT official team or NBA colors. It does not contain full rosters, contracts, salaries, cap sheets, or logos. It is not live data; do not use for trade/signing recommendations. CLE and HOU intentionally have 1 player each after GPT-5.5 source correction removed Darius Garland (now LAC) and Jalen Green (now PHX); no replacement players were added.",
   "limitations": [
-    "Teams metadata, non-official UI accent visual metadata, and 4-player tiny pilot identity + roster membership only",
-    "Pilot covers exactly 2 teams (OKC, DEN) and 4 players; not a full roster",
-    "No contract, salary, cap, injury, scouting, or live data",
-    "Birthdate/height/weight intentionally null for pilot players",
+    "Teams metadata, non-official UI accent visual metadata, and 14-player/8-team identity + roster membership only",
+    "Batch 1 after source correction covers 8 teams (OKC, DEN, BOS, NYK, CLE, MIN, HOU, IND) with 14 players total; not a full roster for any team",
+    "CLE has 1 player (Donovan Mitchell only); Darius Garland removed after GPT-5.5 review confirmed LAC affiliation",
+    "HOU has 1 player (Alperen Sengun only); Jalen Green removed after GPT-5.5 review confirmed PHX affiliation",
+    "No replacement players added to compensate for removed entries; teams may have <2 players",
+    "No contract, salary, cap, injury, scouting, rumor, or live data",
+    "Birthdate/height/weight intentionally null for all players",
     "Visual metadata uses non-official UI accent colors for badge differentiation",
     "No team logos, official branding, official colors, Pantone specifications, or brand guidelines are included",
-    "No official NBA or team endorsement is implied by the visual metadata or pilot roster",
+    "No official NBA or team endorsement is implied by the visual metadata or roster data",
     "Manual review required",
     "Not live data; does not reflect transactions after 2026-06-28",
     "Do not use for trade/signing recommendations"
@@ -40,13 +43,13 @@
       "as_of_date": "2026-06-25"
     },
     "normalized/player_identities.json": {
-      "source_name": "Manual curation from NBA.com player pages cross-checked with ESPN public rosters",
+      "source_name": "Manual curation from NBA.com player pages and team roster pages, cross-verified with public sports news sources; GPT-5.5 source correction removed Darius Garland (now LAC) and Jalen Green (now PHX)",
       "source_url": "https://www.nba.com/players",
       "source_type": "manual_curated",
       "as_of_date": "2026-06-28",
       "manual_review_required": true,
       "live_eligible": false,
-      "data_freshness_warning": "Frozen as-of pilot source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "data_freshness_warning": "Frozen as-of Batch 1 source correction verification only; not current/live NBA data; do not use for trade/signing recommendations.",
       "limitations": [
         "identity_only",
         "not_live",
@@ -54,17 +57,18 @@
         "no_salary",
         "no_cap",
         "no_injury",
-        "tiny_pilot_4_players"
+        "no_depth_chart",
+        "batch1_corrected_14_players_8_teams"
       ]
     },
     "normalized/roster_memberships.json": {
-      "source_name": "Manual curation from NBA.com team roster pages cross-checked with ESPN public rosters",
+      "source_name": "Manual curation from NBA.com team roster pages and player pages, cross-verified with public sports news sources; GPT-5.5 source correction removed Darius Garland (CLE->LAC) and Jalen Green (HOU->PHX) memberships",
       "source_url": "https://www.nba.com/teams",
       "source_type": "manual_curated",
       "as_of_date": "2026-06-28",
       "manual_review_required": true,
       "live_eligible": false,
-      "data_freshness_warning": "Frozen as-of roster membership pilot only; not a live/current roster.",
+      "data_freshness_warning": "Frozen as-of Batch 1 corrected expanded roster membership only; not a live/current roster.",
       "limitations": [
         "membership_only",
         "not_live",
@@ -72,22 +76,23 @@
         "no_salary",
         "no_cap",
         "no_injury",
-        "tiny_pilot_4_memberships"
+        "no_depth_chart",
+        "batch1_corrected_14_memberships_8_teams"
       ]
     }
   },
-  "allowed_usage": "Non-commercial demonstration and internal review. Team identity data, non-official UI accent colors, and tiny pilot player/roster metadata only. Pilot data is identity + roster membership only with no contracts/salaries/cap/injury/live data. Accent colors are for UI badge differentiation and are not official brand colors. Not for use as official NBA data source. Preview-only system; no execution of trades or signings. Do not use pilot data for trade/signing recommendations.",
-  "redistribution_notes": "Team names, abbreviations, conference/division alignment are factual NBA organizational structure. Non-official UI accent colors are manually chosen palette values for UI differentiation — they are NOT official team or NBA colors, NOT Pantone specifications, and do NOT convey endorsement. Tiny pilot player identity and roster membership data is manually curated from public NBA pages with only identity/roster facts included; birthdate/height/weight omitted for pilot. No NBA logos, official fonts, branded visual assets, contracts, salaries, or cap sheets are included in this snapshot. Future data additions (full rosters, contracts, salaries) must comply with individual source licenses.",
+  "allowed_usage": "Non-commercial demonstration and internal review. Team identity data, non-official UI accent colors, and player/roster metadata only. Data is identity + roster membership only with no contracts/salaries/cap/injury/scouting/rumor/live data. Accent colors are for UI badge differentiation and are not official brand colors. Not for use as official NBA data source. Preview-only system; no execution of trades or signings. Do not use for trade/signing recommendations.",
+  "redistribution_notes": "Team names, abbreviations, conference/division alignment are factual NBA organizational structure. Non-official UI accent colors are manually chosen palette values for UI differentiation — they are NOT official team or NBA colors, NOT Pantone specifications, and do NOT convey endorsement. Player identity and roster membership data is manually curated from public NBA pages and cross-verified with public sports news sources; only identity/roster facts included; birthdate/height/weight omitted for all players. GPT-5.5 source correction (2026-06-28) removed Darius Garland and Jalen Green due to incorrect team affiliation (now LAC and PHX respectively); no replacements added. No NBA logos, official fonts, branded visual assets, contracts, salaries, cap sheets, injuries, scouting reports, or rumors are included in this snapshot. Future data additions (full rosters, contracts, salaries) must comply with individual source licenses.",
   "file_hashes": {
     "normalized/teams.json": "sha256:5b1e388bb2b7506832e7fbb0a06e105b9478d4a5caea9fe9514032bd22dc5fbb",
     "normalized/team_visual_metadata.json": "sha256:96274923a688fd05b2c1092487767d462620036dd6605abc0d3d800d6fb3bb8c",
-    "normalized/player_identities.json": "sha256:a015daa14e585335cae301ae2f0f46a34fe9390074b6c2d43083d20fac8bf65c",
-    "normalized/roster_memberships.json": "sha256:93e41296095e60e22b6b3cf8307cdd32405064390e74fc15917e04fa2443aeb9"
+    "normalized/player_identities.json": "sha256:7dfb3c79d2b18122468ce4bd13189cb69a72a6a766ca36302419c973cef6026f",
+    "normalized/roster_memberships.json": "sha256:eb66e528c6d26087f404f808f1caedff0a637e542e67ae7574f58956d051fa32"
   },
-  "created_by": "m10-f4b-tiny-pilot",
+  "created_by": "m10-f5a-batch1-source-correction",
   "validation_status": "partially_validated",
   "replaces_snapshot_id": null,
-  "reviewed_by": "m10-f4b-gate",
+  "reviewed_by": "m10-f5a-gpt55-source-correction",
   "review_date": "2026-06-28",
   "manual_review_required": true
 }

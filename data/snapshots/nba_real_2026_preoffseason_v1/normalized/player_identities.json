@@ -140,6 +140,316 @@
       "notes": [
         "Optional identity fields birthdate/height/weight intentionally null for first pilot."
       ]
+    },
+    {
+      "player_id": "nba-jayson-tatum",
+      "display_name": "Jayson Tatum",
+      "first_name": "Jayson",
+      "last_name": "Tatum",
+      "position": "F",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com team roster page",
+      "source_url": "https://www.nba.com/celtics/roster",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of Batch 1 source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for Batch 1 expansion.",
+        "Franchise cornerstone signed supermax extension through 2030-31 per public reports."
+      ]
+    },
+    {
+      "player_id": "nba-jaylen-brown",
+      "display_name": "Jaylen Brown",
+      "first_name": "Jaylen",
+      "last_name": "Brown",
+      "position": "GF",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com team roster page",
+      "source_url": "https://www.nba.com/celtics/roster",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of Batch 1 source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for Batch 1 expansion.",
+        "Position classified as GF (Guard-Forward) due to SG/SF dual-position listing across sources."
+      ]
+    },
+    {
+      "player_id": "nba-jalen-brunson",
+      "display_name": "Jalen Brunson",
+      "first_name": "Jalen",
+      "last_name": "Brunson",
+      "position": "G",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com team roster page",
+      "source_url": "https://www.nba.com/knicks/roster",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of Batch 1 source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for Batch 1 expansion.",
+        "Franchise PG confirmed as Knicks core; led NYK to 2025-26 conference finals per public reports."
+      ]
+    },
+    {
+      "player_id": "nba-karl-anthony-towns",
+      "display_name": "Karl-Anthony Towns",
+      "first_name": "Karl-Anthony",
+      "last_name": "Towns",
+      "position": "C",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com player page",
+      "source_url": "https://www.nba.com/player/1626157/karl-anthony-towns",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of Batch 1 source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for Batch 1 expansion.",
+        "Traded to NYK prior to 2025-26 season per public reports; NBA.com player page confirms Knicks affiliation."
+      ]
+    },
+    {
+      "player_id": "nba-donovan-mitchell",
+      "display_name": "Donovan Mitchell",
+      "first_name": "Donovan",
+      "last_name": "Mitchell",
+      "position": "G",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com player page",
+      "source_url": "https://www.nba.com/player/1628378/donovan-mitchell",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of Batch 1 source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for Batch 1 expansion.",
+        "NBA.com player page title confirms Cleveland Cavaliers affiliation."
+      ]
+    },
+    {
+      "player_id": "nba-anthony-edwards",
+      "display_name": "Anthony Edwards",
+      "first_name": "Anthony",
+      "last_name": "Edwards",
+      "position": "G",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com team roster page",
+      "source_url": "https://www.nba.com/timberwolves/roster",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of Batch 1 source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for Batch 1 expansion.",
+        "Franchise cornerstone signed max extension through 2028-29 with 2029-30 player option per public reports."
+      ]
+    },
+    {
+      "player_id": "nba-rudy-gobert",
+      "display_name": "Rudy Gobert",
+      "first_name": "Rudy",
+      "last_name": "Gobert",
+      "position": "C",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com player page",
+      "source_url": "https://www.nba.com/player/203497/rudy-gobert",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of Batch 1 source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for Batch 1 expansion.",
+        "NBA.com player page title confirms Minnesota Timberwolves affiliation; 2023-24 DPOY."
+      ]
+    },
+    {
+      "player_id": "nba-alperen-sengun",
+      "display_name": "Alperen Sengun",
+      "first_name": "Alperen",
+      "last_name": "Sengun",
+      "position": "C",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com team roster page",
+      "source_url": "https://www.nba.com/rockets/roster",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of Batch 1 source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for Batch 1 expansion.",
+        "Rockets offensive hub and young cornerstone; signed five-year extension per public reports."
+      ]
+    },
+    {
+      "player_id": "nba-tyrese-haliburton",
+      "display_name": "Tyrese Haliburton",
+      "first_name": "Tyrese",
+      "last_name": "Haliburton",
+      "position": "G",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com team roster page",
+      "source_url": "https://www.nba.com/pacers/roster",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of Batch 1 source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for Batch 1 expansion.",
+        "Pacers franchise PG signed max extension; return confirmed as key for 2026-27 season per public reports."
+      ]
+    },
+    {
+      "player_id": "nba-pascal-siakam",
+      "display_name": "Pascal Siakam",
+      "first_name": "Pascal",
+      "last_name": "Siakam",
+      "position": "F",
+      "birthdate": null,
+      "height": null,
+      "weight": null,
+      "source_name": "NBA.com team roster page",
+      "source_url": "https://www.nba.com/pacers/roster",
+      "source_type": "manual_curated",
+      "as_of_date": "2026-06-28",
+      "manual_review_required": true,
+      "live_eligible": false,
+      "data_freshness_warning": "Frozen as-of Batch 1 source verification only; not current/live NBA data; do not use for trade/signing recommendations.",
+      "snapshot_id": "nba_real_2026_preoffseason_v1",
+      "limitations": [
+        "identity_only",
+        "not_live",
+        "no_contract",
+        "no_salary",
+        "no_cap",
+        "no_injury",
+        "no_depth_chart"
+      ],
+      "notes": [
+        "Optional identity fields birthdate/height/weight intentionally null for Batch 1 expansion.",
+        "Pacers starting forward confirmed alongside Haliburton; China Daily and NetEase sources confirm IND affiliation."
+      ]
     }
   ]
 }

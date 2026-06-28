@@ -63,6 +63,40 @@ REAL_SNAPSHOT_DIR = DATA_DIR / "snapshots" / "nba_real_2026_preoffseason_v1"
 FRONTEND_DIR = REPO_ROOT / "frontend"
 BACKEND_DIR = REPO_ROOT / "backend"
 
+F4B_PLAYER_IDS = {
+    "nba-shai-gilgeous-alexander", "nba-chet-holmgren",
+    "nba-nikola-jokic", "nba-jamal-murray",
+}
+
+BATCH1_NEW_PLAYER_IDS = {
+    "nba-jayson-tatum", "nba-jaylen-brown", "nba-jalen-brunson",
+    "nba-karl-anthony-towns", "nba-donovan-mitchell",
+    "nba-anthony-edwards", "nba-rudy-gobert", "nba-alperen-sengun",
+    "nba-tyrese-haliburton", "nba-pascal-siakam",
+}
+
+SOURCE_CORRECTION_REMOVED_PLAYER_IDS = {
+    "nba-darius-garland",
+    "nba-jalen-green",
+}
+
+SOURCE_CORRECTION_REMOVED_MEMBERSHIP_IDS = {
+    "membership-cle-darius-garland",
+    "membership-hou-jalen-green",
+}
+
+ALL_EXPECTED_PLAYER_IDS = F4B_PLAYER_IDS | BATCH1_NEW_PLAYER_IDS
+
+EXPECTED_PLAYER_COUNT_AFTER_CORRECTION = 14
+EXPECTED_MEMBERSHIP_COUNT_AFTER_CORRECTION = 14
+
+ALLOWED_BATCH1_TEAMS = {
+    "nba-OKC", "nba-DEN", "nba-BOS", "nba-NYK",
+    "nba-CLE", "nba-MIN", "nba-HOU", "nba-IND",
+}
+
+ALLOWED_POSITIONS = {"PG", "SG", "SF", "PF", "C", "G", "F", "FC", "GF"}
+
 
 # --------------------------------------------------------------------------- #
 # Synthetic real-NBA-player-name audit (negative only)
@@ -878,7 +912,7 @@ class TestIsolationRegression:
             f"roster_memberships.json under real normalized/, found: {files}"
         )
 
-    def test_player_identities_json_exists_with_4_tiny_pilot_players(self) -> None:
+    def test_player_identities_json_exists_with_batch1_corrected_14_players(self) -> None:
         p = REAL_SNAPSHOT_DIR / PLAYER_IDENTITIES_REL
         assert p.exists(), f"{PLAYER_IDENTITIES_REL} must exist after F4-B tiny pilot"
         doc = json.loads(p.read_text("utf-8"))
@@ -886,26 +920,41 @@ class TestIsolationRegression:
         assert doc.get("live_eligible") is False
         assert doc.get("manual_review_required") is True
         players = doc.get("players", [])
-        assert len(players) == 4, f"Expected exactly 4 tiny pilot players, got {len(players)}"
-        player_ids = {pl.get("player_id") for pl in players}
-        expected_ids = {
-            "nba-shai-gilgeous-alexander", "nba-chet-holmgren",
-            "nba-nikola-jokic", "nba-jamal-murray",
-        }
-        assert player_ids == expected_ids, f"Unexpected player IDs: {player_ids}"
+        assert len(players) == EXPECTED_PLAYER_COUNT_AFTER_CORRECTION, (
+            f"Expected {EXPECTED_PLAYER_COUNT_AFTER_CORRECTION} players after source correction, got {len(players)}"
+        )
+        player_ids = [pl.get("player_id") for pl in players]
+        player_id_set = set(player_ids)
+        assert F4B_PLAYER_IDS <= player_id_set, (
+            f"Missing F4-B players: {F4B_PLAYER_IDS - player_id_set}"
+        )
+        assert BATCH1_NEW_PLAYER_IDS <= player_id_set, (
+            f"Missing Batch 1 (corrected) players: {BATCH1_NEW_PLAYER_IDS - player_id_set}"
+        )
+        assert len(player_ids) == len(player_id_set), "Duplicate player_ids found"
+        for removed_pid in SOURCE_CORRECTION_REMOVED_PLAYER_IDS:
+            assert removed_pid not in player_id_set, (
+                f"Source-corrected player {removed_pid} must NOT be present (removed after GPT-5.5 review)"
+            )
         for pl in players:
+            assert pl.get("player_id") in ALL_EXPECTED_PLAYER_IDS, (
+                f"Unexpected player_id: {pl.get('player_id')}"
+            )
             assert pl.get("live_eligible") is False
             assert pl.get("manual_review_required") is True
             assert pl.get("birthdate") is None
             assert pl.get("height") is None
             assert pl.get("weight") is None
+            assert pl.get("position") in ALLOWED_POSITIONS, (
+                f"Invalid position for {pl.get('player_id')}: {pl.get('position')}"
+            )
             assert pl.get("source_type") == "manual_curated"
             assert pl.get("snapshot_id") == "nba_real_2026_preoffseason_v1"
         assert _find_forbidden_key(doc) is None, (
             f"Forbidden key found in player_identities.json: {_find_forbidden_key(doc)}"
         )
 
-    def test_roster_memberships_json_exists_with_4_tiny_pilot_memberships(self) -> None:
+    def test_roster_memberships_json_exists_with_batch1_corrected_14_memberships(self) -> None:
         p = REAL_SNAPSHOT_DIR / ROSTER_MEMBERSHIPS_REL
         assert p.exists(), f"{ROSTER_MEMBERSHIPS_REL} must exist after F4-B tiny pilot"
         doc = json.loads(p.read_text("utf-8"))
@@ -913,19 +962,41 @@ class TestIsolationRegression:
         assert doc.get("live_eligible") is False
         assert doc.get("manual_review_required") is True
         mems = doc.get("roster_memberships", [])
-        assert len(mems) == 4, f"Expected exactly 4 tiny pilot memberships, got {len(mems)}"
+        assert len(mems) == EXPECTED_MEMBERSHIP_COUNT_AFTER_CORRECTION, (
+            f"Expected {EXPECTED_MEMBERSHIP_COUNT_AFTER_CORRECTION} memberships after source correction, got {len(mems)}"
+        )
+        membership_ids = [m.get("membership_id") for m in mems]
+        assert len(membership_ids) == len(set(membership_ids)), "Duplicate membership_ids found"
+        for removed_mid in SOURCE_CORRECTION_REMOVED_MEMBERSHIP_IDS:
+            assert removed_mid not in membership_ids, (
+                f"Source-corrected membership {removed_mid} must NOT be present (removed after GPT-5.5 review)"
+            )
         team_ids = {m.get("team_id") for m in mems}
-        assert team_ids == {"nba-OKC", "nba-DEN"}, f"Unexpected team IDs: {team_ids}"
-        player_ids = {m.get("player_id") for m in mems}
-        expected_pids = {
-            "nba-shai-gilgeous-alexander", "nba-chet-holmgren",
-            "nba-nikola-jokic", "nba-jamal-murray",
-        }
-        assert player_ids == expected_pids, f"Unexpected player IDs in memberships: {player_ids}"
+        assert team_ids <= ALLOWED_BATCH1_TEAMS, (
+            f"Unexpected team IDs (not in allowed Batch 1 teams): {team_ids - ALLOWED_BATCH1_TEAMS}"
+        )
+        assert {"nba-OKC", "nba-DEN"} <= team_ids, "Must include OKC and DEN (F4-B teams)"
+        player_ids_in_mems = {m.get("player_id") for m in mems}
+        assert F4B_PLAYER_IDS <= player_ids_in_mems, (
+            f"Missing F4-B players in memberships: {F4B_PLAYER_IDS - player_ids_in_mems}"
+        )
+        for removed_pid in SOURCE_CORRECTION_REMOVED_PLAYER_IDS:
+            assert removed_pid not in player_ids_in_mems, (
+                f"Source-corrected player {removed_pid} must NOT appear in any membership"
+            )
+        players_doc = json.loads((REAL_SNAPSHOT_DIR / PLAYER_IDENTITIES_REL).read_text("utf-8"))
+        valid_player_ids = {pl.get("player_id") for pl in players_doc.get("players", [])}
         for m in mems:
+            assert m.get("player_id") in valid_player_ids, (
+                f"membership player_id {m.get('player_id')} not found in player_identities.json"
+            )
             assert m.get("live_eligible") is False
             assert m.get("manual_review_required") is True
-            assert m.get("roster_status") == "standard"
+            assert m.get("roster_status") == "standard", (
+                f"Unexpected roster_status for {m.get('membership_id')}: {m.get('roster_status')}"
+            )
+            assert m.get("roster_status") != "unknown_manual_review", "No unknown_manual_review allowed in Batch 1"
+            assert m.get("roster_status") != "two_way", "No two_way players confirmed for Batch 1"
             assert m.get("source_type") == "manual_curated"
             assert m.get("snapshot_id") == "nba_real_2026_preoffseason_v1"
         assert _find_forbidden_key(doc) is None, (
@@ -1035,12 +1106,13 @@ class TestIsolationRegression:
             # this test file's blacklist only (negative audit context).
 
 
-class TestTinyPilotSmoke:
-    """Load the real tiny pilot snapshot via the read model service and
+class TestBatch1ExpandedRosterSmoke:
+    """Load the real Batch 1 corrected roster snapshot via the read model service and
     validate all hard guarantees: schema, hashes, xrefs, forbidden fields,
-    governance flags, and pilot scope bounds (4 players / 4 memberships)."""
+    governance flags, and Batch 1 scope bounds (exactly 14 players / 14 memberships
+    after GPT-5.5 source correction removed Garland and Green)."""
 
-    def test_load_real_tiny_pilot_snapshot_succeeds(self) -> None:
+    def test_load_real_batch1_snapshot_succeeds(self) -> None:
         md = load_player_roster_metadata(
             snapshot_mode="real_snapshot",
             reference_date="2026-06-28",
@@ -1051,22 +1123,36 @@ class TestTinyPilotSmoke:
         assert md.manual_review_required is True
         assert md.no_official_branding is True
 
-    def test_tiny_pilot_returns_exactly_4_players(self) -> None:
+    def test_batch1_exact_14_players_with_all_expected_present(self) -> None:
         md = load_player_roster_metadata(
             snapshot_mode="real_snapshot",
             reference_date="2026-06-28",
         )
-        assert len(md.players) == 4
+        assert len(md.players) == EXPECTED_PLAYER_COUNT_AFTER_CORRECTION, (
+            f"Expected {EXPECTED_PLAYER_COUNT_AFTER_CORRECTION} players after source correction, got {len(md.players)}"
+        )
         player_ids = {p.player_id for p in md.players}
-        expected = {
-            "nba-shai-gilgeous-alexander",
-            "nba-chet-holmgren",
-            "nba-nikola-jokic",
-            "nba-jamal-murray",
-        }
-        assert player_ids == expected
+        assert F4B_PLAYER_IDS <= player_ids, (
+            f"Missing F4-B players: {F4B_PLAYER_IDS - player_ids}"
+        )
+        for expected_pid in BATCH1_NEW_PLAYER_IDS:
+            assert expected_pid in player_ids, (
+                f"Missing Batch 1 (corrected) player: {expected_pid}"
+            )
+        for removed_pid in SOURCE_CORRECTION_REMOVED_PLAYER_IDS:
+            assert removed_pid not in player_ids, (
+                f"Source-corrected player {removed_pid} must NOT be present"
+            )
 
-    def test_tiny_pilot_player_fields_correct(self) -> None:
+    def test_batch1_no_duplicate_player_ids(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        player_ids = [p.player_id for p in md.players]
+        assert len(player_ids) == len(set(player_ids)), "Duplicate player_ids found"
+
+    def test_f4b_player_fields_correct(self) -> None:
         md = load_player_roster_metadata(
             snapshot_mode="real_snapshot",
             reference_date="2026-06-28",
@@ -1112,24 +1198,60 @@ class TestTinyPilotSmoke:
         assert murray.weight is None
         assert murray.source_type == "manual_curated"
 
-    def test_tiny_pilot_returns_exactly_4_roster_memberships(self) -> None:
+    def test_batch1_exact_14_memberships_with_f4b_present(self) -> None:
         md = load_player_roster_metadata(
             snapshot_mode="real_snapshot",
             reference_date="2026-06-28",
         )
-        assert len(md.roster_memberships) == 4
-        team_ids = {m.team_id for m in md.roster_memberships}
-        assert team_ids == {"nba-OKC", "nba-DEN"}
+        assert len(md.roster_memberships) == EXPECTED_MEMBERSHIP_COUNT_AFTER_CORRECTION, (
+            f"Expected {EXPECTED_MEMBERSHIP_COUNT_AFTER_CORRECTION} memberships after source correction, got {len(md.roster_memberships)}"
+        )
         player_ids = {m.player_id for m in md.roster_memberships}
-        expected_pids = {
-            "nba-shai-gilgeous-alexander",
-            "nba-chet-holmgren",
-            "nba-nikola-jokic",
-            "nba-jamal-murray",
-        }
-        assert player_ids == expected_pids
+        assert F4B_PLAYER_IDS <= player_ids, (
+            f"Missing F4-B players in memberships: {F4B_PLAYER_IDS - player_ids}"
+        )
+        membership_ids = {m.membership_id for m in md.roster_memberships}
+        for removed_mid in SOURCE_CORRECTION_REMOVED_MEMBERSHIP_IDS:
+            assert removed_mid not in membership_ids, (
+                f"Source-corrected membership {removed_mid} must NOT be present"
+            )
+        for removed_pid in SOURCE_CORRECTION_REMOVED_PLAYER_IDS:
+            assert removed_pid not in player_ids, (
+                f"Source-corrected player {removed_pid} must NOT appear in any membership"
+            )
 
-    def test_tiny_pilot_membership_fields_correct(self) -> None:
+    def test_batch1_no_duplicate_membership_ids(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        membership_ids = [m.membership_id for m in md.roster_memberships]
+        assert len(membership_ids) == len(set(membership_ids)), "Duplicate membership_ids found"
+
+    def test_batch1_all_roster_status_are_standard(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        for m in md.roster_memberships:
+            assert m.roster_status == "standard", (
+                f"Unexpected roster_status for {m.membership_id}: {m.roster_status}"
+            )
+            assert m.roster_status != "unknown_manual_review", "No unknown_manual_review allowed"
+            assert m.roster_status != "two_way", "No two_way players in Batch 1"
+
+    def test_batch1_all_team_ids_are_approved(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        team_ids = {m.team_id for m in md.roster_memberships}
+        assert team_ids <= ALLOWED_BATCH1_TEAMS, (
+            f"Team IDs not in approved Batch 1 set: {team_ids - ALLOWED_BATCH1_TEAMS}"
+        )
+        assert {"nba-OKC", "nba-DEN"} <= team_ids, "Must include OKC and DEN (F4-B teams)"
+
+    def test_f4b_membership_fields_correct(self) -> None:
         md = load_player_roster_metadata(
             snapshot_mode="real_snapshot",
             reference_date="2026-06-28",
@@ -1145,7 +1267,7 @@ class TestTinyPilotSmoke:
         assert mems_by_pid["nba-nikola-jokic"].team_id == "nba-DEN"
         assert mems_by_pid["nba-jamal-murray"].team_id == "nba-DEN"
 
-    def test_tiny_pilot_xrefs_are_valid(self) -> None:
+    def test_batch1_xrefs_are_valid(self) -> None:
         md = load_player_roster_metadata(
             snapshot_mode="real_snapshot",
             reference_date="2026-06-28",
@@ -1162,25 +1284,35 @@ class TestTinyPilotSmoke:
                 f"membership team_id {m.team_id} not found in teams.json"
             )
 
-    def test_tiny_pilot_response_contains_no_forbidden_fields(self) -> None:
+    def test_batch1_all_players_have_null_birthdate_height_weight(self) -> None:
+        md = load_player_roster_metadata(
+            snapshot_mode="real_snapshot",
+            reference_date="2026-06-28",
+        )
+        for p in md.players:
+            assert p.birthdate is None, f"{p.player_id} has non-null birthdate"
+            assert p.height is None, f"{p.player_id} has non-null height"
+            assert p.weight is None, f"{p.player_id} has non-null weight"
+
+    def test_batch1_response_contains_no_forbidden_fields(self) -> None:
         md = load_player_roster_metadata(
             snapshot_mode="real_snapshot",
             reference_date="2026-06-28",
         )
         d = md.to_dict()
         found = _find_forbidden_key(d)
-        assert found is None, f"Forbidden key found in pilot response: {found}"
+        assert found is None, f"Forbidden key found in Batch 1 response: {found}"
 
-    def test_tiny_pilot_no_contracts_salaries_cap_injury_files(self) -> None:
+    def test_batch1_no_contracts_salaries_cap_injury_files(self) -> None:
         forbidden_names = [
             "contracts.json", "salaries.json", "cap_sheet.json", "cap_sheets.json",
             "injuries.json", "rumors.json", "scouting_opinions.json",
         ]
         for name in forbidden_names:
             for p in REAL_SNAPSHOT_DIR.rglob(name):
-                pytest.fail(f"Forbidden file found in pilot snapshot: {p}")
+                pytest.fail(f"Forbidden file found in Batch 1 snapshot: {p}")
 
-    def test_tiny_pilot_hash_validation_is_enforced(self) -> None:
+    def test_batch1_hash_validation_is_enforced(self) -> None:
         import tempfile
         import shutil
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1214,14 +1346,14 @@ class TestTinyPilotSmoke:
                     reference_date="2026-06-28",
                 )
 
-    def test_tiny_pilot_stale_after_date_enforced(self) -> None:
+    def test_batch1_stale_after_date_enforced(self) -> None:
         with pytest.raises(PlayerRosterStaleDataError):
             load_player_roster_metadata(
                 snapshot_mode="real_snapshot",
                 reference_date="2026-08-01",
             )
 
-    def test_tiny_pilot_source_summary_includes_both_files(self) -> None:
+    def test_batch1_source_summary_includes_both_files(self) -> None:
         md = load_player_roster_metadata(
             snapshot_mode="real_snapshot",
             reference_date="2026-06-28",

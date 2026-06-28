@@ -559,14 +559,32 @@ def test_fixture_contains_no_real_nba_player_names(roster_memberships_schema: Di
 # Regression: F4-B tiny pilot guard invariants.
 # ---------------------------------------------------------------------------
 
-EXPECTED_PILOT_PLAYER_IDS_E4 = {
+F4B_PLAYER_IDS_E4 = {
     "nba-shai-gilgeous-alexander",
     "nba-chet-holmgren",
     "nba-nikola-jokic",
     "nba-jamal-murray",
 }
 
-EXPECTED_PILOT_TEAM_IDS_E4 = {"nba-OKC", "nba-DEN"}
+BATCH1_NEW_PLAYER_IDS_E4 = {
+    "nba-jayson-tatum", "nba-jaylen-brown", "nba-jalen-brunson",
+    "nba-karl-anthony-towns", "nba-donovan-mitchell",
+    "nba-anthony-edwards", "nba-rudy-gobert", "nba-alperen-sengun",
+    "nba-tyrese-haliburton", "nba-pascal-siakam",
+}
+
+SOURCE_CORRECTION_REMOVED_PLAYER_IDS_E4 = {
+    "nba-darius-garland",
+    "nba-jalen-green",
+}
+
+EXPECTED_PLAYER_COUNT_E4 = 14
+EXPECTED_MEMBERSHIP_COUNT_E4 = 14
+
+ALLOWED_BATCH1_TEAMS_E4 = {
+    "nba-OKC", "nba-DEN", "nba-BOS", "nba-NYK",
+    "nba-CLE", "nba-MIN", "nba-HOU", "nba-IND",
+}
 
 
 def test_real_normalized_dir_contains_only_expected_files() -> None:
@@ -578,7 +596,7 @@ def test_real_normalized_dir_contains_only_expected_files() -> None:
     )
 
 
-def test_player_identities_json_exists_as_tiny_pilot() -> None:
+def test_player_identities_json_exists_with_batch1_players() -> None:
     target = REAL_SNAPSHOT_NORMALIZED_DIR / "player_identities.json"
     assert target.exists(), "player_identities.json must exist after M10-F4-B tiny pilot."
     doc = _load_json(target)
@@ -586,15 +604,29 @@ def test_player_identities_json_exists_as_tiny_pilot() -> None:
     assert doc.get("live_eligible") is False
     assert doc.get("manual_review_required") is True
     players = doc.get("players", [])
-    assert len(players) == 4, f"Expected 4 tiny pilot players, got {len(players)}"
-    player_ids = {p.get("player_id") for p in players}
-    assert player_ids == EXPECTED_PILOT_PLAYER_IDS_E4
+    assert len(players) == EXPECTED_PLAYER_COUNT_E4, (
+        f"Expected {EXPECTED_PLAYER_COUNT_E4} players after source correction, got {len(players)}"
+    )
+    player_ids = [p.get("player_id") for p in players]
+    player_id_set = set(player_ids)
+    assert F4B_PLAYER_IDS_E4 <= player_id_set, (
+        f"Missing F4-B players: {F4B_PLAYER_IDS_E4 - player_id_set}"
+    )
+    assert BATCH1_NEW_PLAYER_IDS_E4 <= player_id_set, (
+        f"Missing Batch 1 corrected players: {BATCH1_NEW_PLAYER_IDS_E4 - player_id_set}"
+    )
+    for removed_pid in SOURCE_CORRECTION_REMOVED_PLAYER_IDS_E4:
+        assert removed_pid not in player_id_set, (
+            f"Source-corrected player {removed_pid} must NOT be present"
+        )
+    assert len(player_ids) == len(player_id_set), "Duplicate player_ids found"
     for p in players:
+        assert p.get("player_id") in F4B_PLAYER_IDS_E4 | BATCH1_NEW_PLAYER_IDS_E4
         assert p.get("live_eligible") is False
         assert p.get("manual_review_required") is True
 
 
-def test_roster_memberships_json_exists_as_tiny_pilot() -> None:
+def test_roster_memberships_json_exists_with_batch1_memberships() -> None:
     target = REAL_SNAPSHOT_NORMALIZED_DIR / "roster_memberships.json"
     assert target.exists(), "roster_memberships.json must exist after M10-F4-B tiny pilot."
     doc = _load_json(target)
@@ -602,13 +634,33 @@ def test_roster_memberships_json_exists_as_tiny_pilot() -> None:
     assert doc.get("live_eligible") is False
     assert doc.get("manual_review_required") is True
     mems = doc.get("roster_memberships", [])
-    assert len(mems) == 4, f"Expected 4 tiny pilot memberships, got {len(mems)}"
+    assert len(mems) == EXPECTED_MEMBERSHIP_COUNT_E4, (
+        f"Expected {EXPECTED_MEMBERSHIP_COUNT_E4} memberships after source correction, got {len(mems)}"
+    )
+    membership_ids = [m.get("membership_id") for m in mems]
+    assert len(membership_ids) == len(set(membership_ids)), "Duplicate membership_ids found"
     player_ids = {m.get("player_id") for m in mems}
     team_ids = {m.get("team_id") for m in mems}
-    assert player_ids == EXPECTED_PILOT_PLAYER_IDS_E4
-    assert team_ids == EXPECTED_PILOT_TEAM_IDS_E4
+    assert F4B_PLAYER_IDS_E4 <= player_ids, (
+        f"Missing F4-B players in memberships: {F4B_PLAYER_IDS_E4 - player_ids}"
+    )
+    for removed_pid in SOURCE_CORRECTION_REMOVED_PLAYER_IDS_E4:
+        assert removed_pid not in player_ids, (
+            f"Source-corrected player {removed_pid} must NOT appear in any membership"
+        )
+    assert team_ids <= ALLOWED_BATCH1_TEAMS_E4, (
+        f"Unexpected team IDs: {team_ids - ALLOWED_BATCH1_TEAMS_E4}"
+    )
+    assert {"nba-OKC", "nba-DEN"} <= team_ids, "Must include OKC and DEN"
+    players_doc = _load_json(REAL_SNAPSHOT_NORMALIZED_DIR / "player_identities.json")
+    valid_player_ids = {p.get("player_id") for p in players_doc.get("players", [])}
     for m in mems:
+        assert m.get("player_id") in valid_player_ids, (
+            f"membership player_id {m.get('player_id')} not found in player_identities"
+        )
         assert m.get("roster_status") == "standard"
+        assert m.get("roster_status") != "unknown_manual_review"
+        assert m.get("roster_status") != "two_way"
         assert m.get("live_eligible") is False
         assert m.get("manual_review_required") is True
 
