@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://frontoffice-offseason-agent/schemas/source_manifest_schema.json",
   "title": "Source Manifest Schema",
-  "description": "Schema for source_manifest.json in curated real NBA snapshots. Defines source metadata, freshness governance, licensing, and validation tracking. Must not contain any execution, mutation, live-data, or logo-branding fields. M10-E2 patch: adds player_identities and roster_memberships as allowed future data_categories; adds per-file source_type/manual_review_required/live_eligible/data_freshness_warning/limitations fields; tightens forbidden categories and field names (contracts/salaries/cap_sheets/injuries/rumors/live_status/latest_roster).",
+  "description": "Schema for source_manifest.json in curated real NBA snapshots. Defines source metadata, freshness governance, licensing, and validation tracking. Must not contain any execution, mutation, live-data, or logo-branding fields. M10-E2 patch: adds player_identities and roster_memberships as allowed future data_categories; adds per-file source_type/manual_review_required/live_eligible/data_freshness_warning/limitations fields; tightens forbidden categories and field names. M10-F6-D-prep patch: adds authorized_api_snapshot and authorized_provider_reference source_type values; adds optional provider lineage metadata fields (provider_name, endpoint docs/template, access/as_of/stale dates, license/key-redaction notes, secret-scan status, derived_from_raw_files) to per-file entries; per-file propertyNames forbid secret/key field names.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -137,12 +137,63 @@
         "properties": {
           "source_name": { "type": "string", "minLength": 1 },
           "source_url": { "type": ["string", "null"] },
+          "source_reference": { "type": ["string", "null"] },
           "source_type": {
             "type": "string",
-            "enum": ["manual_curated", "public_reference", "league_roster", "manual_non_official_ui"],
-            "description": "Provenance classification. 'llm_generated' and 'scraped_unreviewed' are forbidden and must not be added."
+            "enum": ["manual_curated", "public_reference", "league_roster", "manual_non_official_ui", "authorized_api_snapshot", "authorized_provider_reference"],
+            "description": "Provenance classification. 'llm_generated' and 'scraped_unreviewed' are forbidden and must not be added. 'authorized_api_snapshot' is for raw provider response files from an authorized API (e.g. Sportradar/SportsDataIO). 'authorized_provider_reference' is for normalized files derived from authorized raw snapshots."
           },
           "as_of_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+          "provider_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Provider identifier for authorized API sources, e.g. 'sportradar' or 'sportsdataio'. Optional; used with authorized_api_snapshot and authorized_provider_reference."
+          },
+          "provider_endpoint_docs_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Link to provider endpoint documentation (template, not key-bearing URL). Optional."
+          },
+          "endpoint_template": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Endpoint URL template with {placeholders}, NO API key. Example: 'https://api.sportradar.com/nba/trial/v8/en/teams/{team_id}/profile.json'. Optional."
+          },
+          "access_date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+            "description": "Date the raw fetch was performed (ISO YYYY-MM-DD). Optional; used for raw snapshot entries."
+          },
+          "stale_after_date": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+            "description": "Date after which this per-file data must be considered stale; null if no explicit expiration. Optional."
+          },
+          "license_notes": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Per-file license attribution notes. Optional."
+          },
+          "key_redaction_notes": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Notes describing how the API key was redacted from raw files and URLs (e.g. 'header auth used; query param key scrubbed'). Optional."
+          },
+          "no_secret_in_raw": {
+            "type": "boolean",
+            "description": "Confirmation that the raw file contains no API key, token, or secret. Optional; should be true for authorized raw snapshots."
+          },
+          "secret_scan_status": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Status of the secret scan on the raw file, e.g. 'passed', 'failed', 'skipped'. Optional."
+          },
+          "derived_from_raw_files": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true,
+            "description": "Relative paths of raw files this normalized entry is derived from. Used by authorized_provider_reference entries to link back to raw snapshots. Optional."
+          },
           "manual_review_required": {
             "type": "boolean",
             "description": "Per-file manual-review flag. All real player/roster data must set this to true."
@@ -163,9 +214,30 @@
             "minItems": 1,
             "description": "Per-file limitations/caveats."
           }
+        },
+        "propertyNames": {
+          "not": {
+            "enum": [
+              "api_key", "apikey", "key", "authorization", "auth", "token",
+              "access_token", "auth_token", "bearer_token", "subscription_key",
+              "secret", "password", "credentials",
+              "salary", "salaries", "contract", "contracts", "cap_hold",
+              "guarantee_amount", "cap_sheet", "cap_sheets",
+              "injury", "injuries", "injury_status", "medical", "medical_status",
+              "rumor", "rumors", "scouting_opinion", "scouting_opinions",
+              "live_status", "availability", "real_time_availability", "active_now",
+              "current_roster", "latest_roster", "latest_data", "live_data",
+              "current_salaries", "real_time_data",
+              "depth_chart", "projected_depth_chart", "minutes_projection",
+              "role_projection", "trade_eligibility",
+              "execute", "apply", "commit", "mutate", "write", "persist",
+              "save", "delete", "update", "submit", "auto_execute", "auto_approve"
+            ]
+          },
+          "description": "Forbidden per-file field names: secret/credential fields, forbidden data domains (salary/contract/cap/injury/rumor/scouting/live/depth), and execution verbs. additionalProperties:false already rejects unknown fields; this provides explicit enumerated protection."
         }
       },
-      "description": "Per-file source tracking because teams/player_identities/roster_memberships/contracts/cap_sheets may come from different sources; may be empty for placeholder fixtures. M10-E2: extended with optional per-file source_type / manual_review_required / live_eligible / data_freshness_warning / limitations to support future player/roster lineage. Entries for player_identities/roster_memberships must supply these governance fields."
+      "description": "Per-file source tracking because teams/player_identities/roster_memberships/contracts/cap_sheets may come from different sources; may be empty for placeholder fixtures. M10-E2: extended with optional per-file source_type / manual_review_required / live_eligible / data_freshness_warning / limitations to support future player/roster lineage. M10-F6-D-prep: adds authorized_api_snapshot and authorized_provider_reference source_type values; adds optional provider lineage metadata (provider_name, endpoint docs/template, access/as_of/stale dates, license/key-redaction notes, no_secret_in_raw, secret_scan_status, derived_from_raw_files); per-file propertyNames forbid secret/credential field names."
     },
     "allowed_usage": {
       "type": "string",
@@ -219,9 +291,12 @@
         "current_roster", "latest_roster", "live_salaries", "latest_data", "live_data",
         "current_salaries", "real_time_data", "live_status",
         "logo_path", "logo_url", "official_logo", "nba_logo", "team_logo", "mascot_image",
-        "salaries", "injuries", "injury_status", "scouting_opinions", "rumors"
+        "salaries", "injuries", "injury_status", "scouting_opinions", "rumors",
+        "api_key", "apikey", "key", "authorization", "auth", "token",
+        "access_token", "auth_token", "bearer_token", "subscription_key",
+        "secret", "password", "credentials"
       ]
     },
-    "description": "Forbidden field names: execution verbs, live/current/latest hints, logo asset references, salary/injury/scouting/rumor fields (deferred to M10-F+ or permanently forbidden)."
+    "description": "Forbidden field names: execution verbs, live/current/latest hints, logo asset references, salary/injury/scouting/rumor fields, and secret/credential fields (api_key, token, secret, password, etc.)."
   }
 }

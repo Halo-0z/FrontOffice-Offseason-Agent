@@ -197,7 +197,7 @@ class TestPositiveValidation:
         doc = _make_future_snapshot_base(real_source_manifest)
         entry = doc["per_file_sources"]["normalized/player_identities.json"]
         assert entry["source_name"]
-        assert entry["source_type"] in {"manual_curated", "public_reference", "league_roster", "manual_non_official_ui"}
+        assert entry["source_type"] in {"manual_curated", "public_reference", "league_roster", "manual_non_official_ui", "authorized_api_snapshot", "authorized_provider_reference"}
         assert entry["as_of_date"] == "2026-06-25"
         assert entry["manual_review_required"] is True
         assert entry["live_eligible"] is False
@@ -211,7 +211,7 @@ class TestPositiveValidation:
         doc = _make_future_snapshot_base(real_source_manifest)
         entry = doc["per_file_sources"]["normalized/roster_memberships.json"]
         assert entry["source_name"]
-        assert entry["source_type"] in {"manual_curated", "public_reference", "league_roster", "manual_non_official_ui"}
+        assert entry["source_type"] in {"manual_curated", "public_reference", "league_roster", "manual_non_official_ui", "authorized_api_snapshot", "authorized_provider_reference"}
         assert entry["as_of_date"] == "2026-06-25"
         assert entry["manual_review_required"] is True
         assert entry["live_eligible"] is False
@@ -253,7 +253,7 @@ class TestPositiveValidation:
         assert isinstance(doc["limitations"], list) and doc["limitations"]
         jsonschema.validate(doc, source_manifest_schema)
 
-    @pytest.mark.parametrize("source_type", ["manual_curated", "public_reference", "league_roster", "manual_non_official_ui"])
+    @pytest.mark.parametrize("source_type", ["manual_curated", "public_reference", "league_roster", "manual_non_official_ui", "authorized_api_snapshot", "authorized_provider_reference"])
     def test_allowed_source_type_enum_passes(
         self, real_source_manifest, source_manifest_schema, source_type
     ):
@@ -656,3 +656,267 @@ class TestRegressionBatch1Guard:
             f"Unexpected files/dirs in real snapshot root: {sorted(unexpected)}. "
             f"M10-F4-B must not add additional top-level files."
         )
+
+
+# --------------------------------------------------------------------------- #
+# M10-F6-D-prep: Authorized API source_manifest schema patch tests
+# --------------------------------------------------------------------------- #
+
+
+SECRET_PATTERNS_IN_STRINGS = [
+    "api_key=",
+    "key=",
+    "subscription-key",
+    "SPORTRADAR_NBA_API_KEY",
+    "SPORTSDATAIO_NBA_API_KEY",
+    "sk_",
+    "bearer",
+    "token=",
+]
+
+
+def _scan_strings_for_secrets(obj: Any) -> list[str]:
+    """Recursively scan all string values in a JSON-like object for secret-like
+    patterns. Returns a list of (pattern, context) tuples where patterns were found."""
+    hits: list[str] = []
+    if isinstance(obj, dict):
+        for v in obj.values():
+            hits.extend(_scan_strings_for_secrets(v))
+    elif isinstance(obj, list):
+        for v in obj:
+            hits.extend(_scan_strings_for_secrets(v))
+    elif isinstance(obj, str):
+        lower = obj.lower()
+        for pat in SECRET_PATTERNS_IN_STRINGS:
+            if pat.lower() in lower:
+                hits.append(f"pattern={pat!r} found in string: {obj[:120]!r}")
+    return hits
+
+
+def _make_authorized_raw_fixture(real_source_manifest: Dict[str, Any]) -> Dict[str, Any]:
+    """Build an in-memory fixture representing an authorized_api_snapshot raw entry.
+    Does NOT write anything to disk."""
+    doc = copy.deepcopy(real_source_manifest)
+    raw_path = "raw/authorized_roster_api/sportradar/2026-06-28/team-profile-okc.json"
+    doc["data_categories"] = ["teams", "team_visual_metadata", "player_identities", "roster_memberships"]
+    doc["file_hashes"][raw_path] = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    doc["file_hashes"]["normalized/player_identities.json"] = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    doc["file_hashes"]["normalized/roster_memberships.json"] = "sha256:0000000000000000000000000000000000000000000000000000000000000001"
+    doc["per_file_sources"][raw_path] = {
+        "source_name": "Sportradar NBA Team Profile API (offline raw snapshot)",
+        "source_url": None,
+        "source_type": "authorized_api_snapshot",
+        "provider_name": "sportradar",
+        "provider_endpoint_docs_url": "https://developer.sportradar.com/docs/read/basketball/NBA_v8",
+        "endpoint_template": "https://api.sportradar.com/nba/trial/v8/en/teams/{team_id}/profile.json",
+        "access_date": "2026-06-28",
+        "as_of_date": "2026-06-28",
+        "stale_after_date": "2026-07-28",
+        "license_notes": "Sportradar NBA API data captured under authorized trial key for offline snapshot processing; raw response stored verbatim (key-redacted). No runtime API dependency.",
+        "key_redaction_notes": "Header-based authentication used; API key not present in URL or response body. Query parameter key scrubbed from endpoint_template.",
+        "no_secret_in_raw": True,
+        "secret_scan_status": "passed",
+        "manual_review_required": True,
+        "live_eligible": False,
+        "data_freshness_warning": "Raw provider response snapshot captured 2026-06-28; frozen for offline processing; not live data.",
+        "limitations": [
+            "raw_provider_response",
+            "not_live",
+            "key_redacted",
+            "awaiting_normalization_review",
+            "no_contract",
+            "no_salary",
+            "no_cap",
+            "no_injury",
+            "no_depth_chart",
+        ],
+    }
+    doc["per_file_sources"]["normalized/player_identities.json"] = {
+        "source_name": "Derived from Sportradar NBA Team Profile API raw snapshot (2026-06-28)",
+        "source_url": None,
+        "source_type": "authorized_provider_reference",
+        "provider_name": "sportradar",
+        "as_of_date": "2026-06-28",
+        "stale_after_date": "2026-07-28",
+        "no_secret_in_raw": True,
+        "derived_from_raw_files": [raw_path],
+        "manual_review_required": True,
+        "live_eligible": False,
+        "data_freshness_warning": "Normalized from authorized raw snapshot captured 2026-06-28; frozen; not live.",
+        "limitations": ["identity_only", "not_live", "no_contract", "no_salary", "no_cap", "no_injury"],
+    }
+    doc["per_file_sources"]["normalized/roster_memberships.json"] = {
+        "source_name": "Derived from Sportradar NBA Team Profile API raw snapshot (2026-06-28)",
+        "source_url": None,
+        "source_type": "authorized_provider_reference",
+        "provider_name": "sportradar",
+        "as_of_date": "2026-06-28",
+        "stale_after_date": "2026-07-28",
+        "no_secret_in_raw": True,
+        "derived_from_raw_files": [raw_path],
+        "manual_review_required": True,
+        "live_eligible": False,
+        "data_freshness_warning": "Normalized from authorized raw snapshot captured 2026-06-28; frozen; not live.",
+        "limitations": ["membership_only", "not_live", "no_contract", "no_salary", "no_cap", "no_injury", "no_depth_chart"],
+    }
+    doc.setdefault("stale_after_date", None)
+    return doc
+
+
+class TestAuthorizedApiSourceManifestPositive:
+    """M10-F6-D-prep: Positive tests for the new authorized_api_snapshot and
+    authorized_provider_reference source_type values and optional provider
+    metadata fields."""
+
+    def test_current_f5a_source_manifest_still_valid(
+        self, real_source_manifest, source_manifest_schema
+    ):
+        """Guard A: The sealed F5-A source_manifest.json on disk must still
+        validate against the patched schema — no forced migration."""
+        jsonschema.validate(real_source_manifest, source_manifest_schema)
+
+    def test_authorized_raw_source_entry_validates(
+        self, real_source_manifest, source_manifest_schema
+    ):
+        """Guard B: An in-memory authorized_api_snapshot raw entry validates."""
+        doc = _make_authorized_raw_fixture(real_source_manifest)
+        jsonschema.validate(doc, source_manifest_schema)
+        raw_entry = doc["per_file_sources"]["raw/authorized_roster_api/sportradar/2026-06-28/team-profile-okc.json"]
+        assert raw_entry["source_type"] == "authorized_api_snapshot"
+        assert raw_entry["provider_name"] == "sportradar"
+        assert raw_entry["no_secret_in_raw"] is True
+        assert raw_entry["secret_scan_status"] == "passed"
+        assert raw_entry["manual_review_required"] is True
+        assert raw_entry["live_eligible"] is False
+        assert "{team_id}" in raw_entry["endpoint_template"]
+        assert "api_key" not in raw_entry["endpoint_template"]
+
+    def test_authorized_derived_normalized_entries_validate(
+        self, real_source_manifest, source_manifest_schema
+    ):
+        """Guard C: authorized_provider_reference entries for normalized files validate."""
+        doc = _make_authorized_raw_fixture(real_source_manifest)
+        jsonschema.validate(doc, source_manifest_schema)
+        for fname in ("normalized/player_identities.json", "normalized/roster_memberships.json"):
+            entry = doc["per_file_sources"][fname]
+            assert entry["source_type"] == "authorized_provider_reference"
+            assert entry["derived_from_raw_files"]
+            assert entry["provider_name"] == "sportradar"
+            assert entry["no_secret_in_raw"] is True
+            assert entry["manual_review_required"] is True
+            assert entry["live_eligible"] is False
+
+    @pytest.mark.parametrize("source_type", ["authorized_api_snapshot", "authorized_provider_reference"])
+    def test_new_source_type_enum_accepted(
+        self, real_source_manifest, source_manifest_schema, source_type
+    ):
+        """Guard D: Both new source_type values are accepted by the enum."""
+        doc = _make_future_snapshot_base(real_source_manifest)
+        doc["per_file_sources"]["normalized/player_identities.json"]["source_type"] = source_type
+        jsonschema.validate(doc, source_manifest_schema)
+
+
+class TestAuthorizedApiSecretSafety:
+    """M10-F6-D-prep: Secret/key safety tests. Verify that secret-like field
+    names are rejected by the schema (via additionalProperties:false AND
+    propertyNames), and that string values do not contain secret-like patterns."""
+
+    @pytest.mark.parametrize("secret_field", [
+        "api_key", "apikey", "key", "authorization", "auth", "token",
+        "access_token", "auth_token", "bearer_token", "subscription_key",
+        "secret", "password", "credentials",
+    ])
+    def test_per_file_secret_field_rejected_by_schema(
+        self, real_source_manifest, source_manifest_schema, secret_field
+    ):
+        """Guard E: Per-file entries reject secret/credential field names."""
+        doc = _make_authorized_raw_fixture(real_source_manifest)
+        raw_path = "raw/authorized_roster_api/sportradar/2026-06-28/team-profile-okc.json"
+        doc["per_file_sources"][raw_path][secret_field] = "dummy-value"
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(doc, source_manifest_schema)
+
+    @pytest.mark.parametrize("secret_field", [
+        "api_key", "apikey", "key", "authorization", "token",
+        "access_token", "auth_token", "bearer_token", "subscription_key",
+        "secret", "password", "credentials",
+    ])
+    def test_top_level_secret_field_rejected_by_schema(
+        self, real_source_manifest, source_manifest_schema, secret_field
+    ):
+        """Top-level entries also reject secret/credential field names."""
+        doc = _make_future_snapshot_base(real_source_manifest)
+        doc[secret_field] = "dummy-value"
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(doc, source_manifest_schema)
+
+    def test_raw_fixture_strings_contain_no_secret_patterns(
+        self, real_source_manifest, source_manifest_schema
+    ):
+        """Guard F: The in-memory authorized fixture has no secret-like patterns
+        in any string value (URLs, notes, templates, etc.)."""
+        doc = _make_authorized_raw_fixture(real_source_manifest)
+        jsonschema.validate(doc, source_manifest_schema)
+        hits = _scan_strings_for_secrets(doc)
+        assert not hits, f"Secret-like patterns found in fixture: {hits}"
+
+    def test_endpoint_template_has_no_key_query_param(
+        self, real_source_manifest
+    ):
+        """The endpoint_template in the raw fixture must NOT contain api_key=."""
+        doc = _make_authorized_raw_fixture(real_source_manifest)
+        raw_path = "raw/authorized_roster_api/sportradar/2026-06-28/team-profile-okc.json"
+        tpl = doc["per_file_sources"][raw_path]["endpoint_template"]
+        assert "api_key=" not in tpl
+        assert "apikey=" not in tpl
+        assert "{team_id}" in tpl
+
+
+class TestNoNormalizedSchemaChanges:
+    """Guard G: This patch must NOT modify the player_identities_schema or
+    roster_memberships_schema. We verify the schemas remain untouched by
+    loading them and confirming they do NOT contain F6-D-specific markers."""
+
+    def test_player_identities_schema_has_no_authorized_source_type(self):
+        """player_identities_schema.json must not reference authorized_api_snapshot
+        or contain provider lineage fields (it is untouched)."""
+        pis = _load_json(SCHEMA_DIR / "player_identities_schema.json")
+        schema_text = json.dumps(pis)
+        assert "authorized_api_snapshot" not in schema_text
+        assert "authorized_provider_reference" not in schema_text
+        assert "provider_name" not in schema_text
+        assert "derived_from_raw_files" not in schema_text
+
+    def test_roster_memberships_schema_has_no_authorized_source_type(self):
+        """roster_memberships_schema.json must not reference authorized_api_snapshot
+        or contain provider lineage fields (it is untouched)."""
+        rms = _load_json(SCHEMA_DIR / "roster_memberships_schema.json")
+        schema_text = json.dumps(rms)
+        assert "authorized_api_snapshot" not in schema_text
+        assert "authorized_provider_reference" not in schema_text
+        assert "provider_name" not in schema_text
+        assert "derived_from_raw_files" not in schema_text
+
+    def test_real_snapshot_manifest_schema_has_no_authorized_source_type(self):
+        """real_snapshot_manifest_schema.json is untouched by this patch."""
+        rsms = _load_json(SCHEMA_DIR / "real_snapshot_manifest_schema.json")
+        schema_text = json.dumps(rsms)
+        assert "authorized_api_snapshot" not in schema_text
+        assert "authorized_provider_reference" not in schema_text
+        assert "derived_from_raw_files" not in schema_text
+
+    def test_no_raw_files_created_under_data(self):
+        """Guard that no raw/ directory or raw files exist under the real
+        snapshot dir — F6-D-prep is schema/tests/docs only."""
+        raw_dir = REAL_SNAPSHOT_DIR / "raw"
+        assert not raw_dir.exists(), (
+            f"raw/ directory must not exist after F6-D-prep; {raw_dir} found."
+        )
+
+    def test_no_new_normalized_data_files(self):
+        """player_identities.json and roster_memberships.json should still be
+        F5-A sealed content (14 players / 14 memberships)."""
+        pi = json.loads((REAL_SNAPSHOT_NORMALIZED_DIR / "player_identities.json").read_text("utf-8"))
+        rm = json.loads((REAL_SNAPSHOT_NORMALIZED_DIR / "roster_memberships.json").read_text("utf-8"))
+        assert len(pi.get("players", [])) == 14, "player_identities must remain at F5-A 14 players"
+        assert len(rm.get("roster_memberships", [])) == 14, "roster_memberships must remain at F5-A 14 memberships"
